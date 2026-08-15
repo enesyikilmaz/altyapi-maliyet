@@ -79,8 +79,8 @@ def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
     return fig
 
 # --- 1. ARAYÜZ VE BAŞLIK ---
-st.set_page_config(page_title="Altyapı Yaklaşık Maliyet Motoru", layout="wide", page_icon="🚜")
-st.title("🚧Kanal Kazısı Yaklaşık Maliyet Hesaplama 🚜")
+st.set_page_config(page_title="Altyapı Yaklaşık Maliyet Motoru", layout="wide", page_icon="👷")
+st.title("🚧Kanal Kazısı Yaklaşık Maliyet Hesaplama 👷")
 
 file_path = "Altyapı Birim Fiyatlar_2.xlsx"
 
