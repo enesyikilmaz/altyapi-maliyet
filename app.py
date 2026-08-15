@@ -2,23 +2,33 @@ import streamlit as st
 import pandas as pd
 import math
 
+# --- ÖZEL FORMATLAMA FONKSİYONLARI ---
+def format_currency(value):
+    formatted = f"{value:,.2f}"
+    formatted = formatted.replace(',', 'X').replace('.', ',').replace('X', '.')
+    return f"₺{formatted}"
+
+def format_quantity(value):
+    formatted = f"{value:.2f}"
+    return formatted.replace('.', ',')
+
 st.set_page_config(page_title="Altyapı Yaklaşık Maliyet Motoru", layout="wide", page_icon="🏗️")
 st.title("🚧 Altyapı Metraj ve Kârsız Yaklaşık Maliyet Motoru")
-st.markdown("Otomatik Poz Seçimi, Geometrik Şev Kontrolü ve Dinamik KGM Nakliye Analizleri ile tam uyumlu yaklaşık maliyet motoru.")
+st.markdown("Otomatik Poz Seçimi, Geometrik Şev Kontrolü, Dinamik Nakliye ve Q188/188 Donatı Analizleri (Eylül 2025)")
 
-# --- 1. VERİ YÜKLEME ---
-st.sidebar.header("1. Fiyat Veritabanı (Excel)")
-uploaded_file = st.sidebar.file_uploader("Birim Fiyat Excel Dosyasını Yükleyin", type=["xlsx", "xls"])
+# --- 1. VERİ YÜKLEME (OTOMATİK DOSYADAN) ---
+file_path = "Altyapı Birim Fiyatlar_2.xlsx"
 
-if uploaded_file is not None:
-    df_fiyatlar = pd.read_excel(uploaded_file)
+try:
+    df_fiyatlar = pd.read_excel(file_path)
     sabit_sutunlar = ['SIRA NO', 'POZ NO', 'İŞ KALEMİNİN ADI VE KISA AÇIKLAMASI', 'BİRİMİ']
     donem_sutunlari = [col for col in df_fiyatlar.columns if col not in sabit_sutunlar]
+    secilen_donem = donem_sutunlari[0]
     poz_listesi = df_fiyatlar['POZ NO'].astype(str).tolist()
     
     # --- 2. KULLANICI GİRİŞ PARAMETRELERİ ---
-    st.sidebar.header("2. Metraj Parametreleri")
-    secilen_donem = st.sidebar.selectbox("Fiyat Dönemini Seçin", donem_sutunlari)
+    st.sidebar.header("1. Metraj Parametreleri")
+    st.sidebar.info("Dönem: **Eylül 2025**")
     
     uzunluk = st.sidebar.number_input("Hat Uzunluğu (m)", min_value=0.0, value=100.0)
     derinlik = st.sidebar.number_input("Ortalama Kazı Derinliği (m)", min_value=0.0, value=2.0)
@@ -28,12 +38,11 @@ if uploaded_file is not None:
     ic_cap_mm = st.sidebar.selectbox("Boru İç Çapı (mm)", boru_caplari)
 
     # --- 3. NAKLİYE PARAMETRELERİ ---
-    st.sidebar.header("3. Nakliye Mesafeleri (km)")
+    st.sidebar.header("2. Nakliye Mesafeleri (km)")
     mesafe_kazi = st.sidebar.number_input("Kazı Döküm Mesafesi (km)", min_value=0.0, value=12.0, step=1.0)
     mesafe_boru = st.sidebar.number_input("Boru Nakliye Mesafesi (km)", min_value=0.0, value=12.0, step=1.0)
     mesafe_kirmatas = st.sidebar.number_input("Kırmataş/Kum Nakliye Mesafesi (km)", min_value=0.0, value=14.0, step=1.0)
     
-    # İleri seviye değişkenler (Varsayılan olarak kullanıcıdan gizlenebilir ama değiştirme imkanı sunar)
     with st.sidebar.expander("Gelişmiş Nakliye Katsayıları (Eylül 2025)"):
         K_katsayisi = st.number_input("Taşıt Katsayısı (K)", value=2048.01)
         A_katsayisi = st.number_input("Zorluk Katsayısı (A)", value=1.75)
@@ -44,6 +53,7 @@ if uploaded_file is not None:
     kazi_pozu = "KGM 14.210"
     kum_pozu = "43.610.1053"
     dolgu_pozu = "43.610.1064" if "Sert Zemin" in zemin_tipi else "43.610.1004"
+    hasir_celik_pozu = "43.665.1011"
     
     boru_poz_sozlugu = {
         300: "43.526.1123", 400: "43.526.1124", 500: "43.526.1125", 600: "43.526.1126",
@@ -55,10 +65,14 @@ if uploaded_file is not None:
 
     # --- 4. HESAPLAMA MOTORU ---
     if st.button("Yaklaşık Maliyeti Çıkar", type="primary", use_container_width=True):
-        eksik_pozlar = [poz for poz in [kazi_pozu, kum_pozu, dolgu_pozu, boru_pozu] if poz not in poz_listesi]
+        gerekli_pozlar = [kazi_pozu, kum_pozu, dolgu_pozu, boru_pozu]
+        if ic_cap_mm >= 800:
+            gerekli_pozlar.append(hasir_celik_pozu)
+            
+        eksik_pozlar = [poz for poz in gerekli_pozlar if poz not in poz_listesi]
         
         if eksik_pozlar:
-            st.error(f"⚠️ Hata: Yüklediğiniz Excel dosyasında şu otomatik pozlar bulunamadı: {', '.join(eksik_pozlar)}")
+            st.error(f"⚠️ Hata: 'Altyapı Birim Fiyatlar_2.xlsx' dosyasında şu otomatik pozlar bulunamadı: {', '.join(eksik_pozlar)}")
         else:
             # 1. Boru Dış Çapı Hesabı
             et_kalinlikleri_mm = {300: 50, 400: 50, 500: 60, 600: 70, 800: 90, 1000: 110, 1200: 130, 1400: 150, 1600: 170, 1800: 180, 2000: 200, 2200: 220, 2400: 240}
@@ -79,41 +93,49 @@ if uploaded_file is not None:
             kum_dolgu_hacmi_net = kum_dolgu_hacmi_brut - boru_hacmi_dis
             tuvenan_dolgu_hacmi = kazi_hacmi - kum_dolgu_hacmi_brut
 
-            # 4. Nakliye Metrajları ve Analizleri
-            # a) Kazı Nakliyesi (SNBF.27-A) - Yeşil alanda toprak tekrar kullanılacağı için geri dolgu miktarı düşülür.
+            # 4. Hasır Çelik (Donatı) Metrajı (Q188/188 Tek Kat)
+            hasir_celik_miktari_ton = 0
+            hasir_celik_alani_m2 = 0
+            if ic_cap_mm >= 800:
+                hasir_celik_kg_m2 = 2.95 # Q188/188 tipi hasır çelik standart ağırlığı
+                donati_capi_m = (ic_cap_mm + et_kalinligi) / 1000.0 # Et kalınlığının ortasından geçen büküm çapı
+                bir_metre_cevre = math.pi * donati_capi_m
+                hasir_celik_alani_m2 = bir_metre_cevre * uzunluk
+                hasir_celik_miktari_ton = (hasir_celik_alani_m2 * hasir_celik_kg_m2) / 1000.0 # Tona çevirilir
+
+            # 5. Nakliye Metrajları ve Analizleri
             nakliye_kazi_miktari = kazi_hacmi - (tuvenan_dolgu_hacmi if dolgu_pozu == "43.610.1004" else 0)
             fiyat_SNBF_27A = 0
             if mesafe_kazi > 0:
                 mesafe_metre = mesafe_kazi * 1000
-                formul_F = 1.25 * K_katsayisi * ((0.00046 * math.sqrt(mesafe_metre)) - 0.0046)
-                fiyat_SNBF_27A = formul_F + 29.28 + 80.00 # F + Yükleme/Boşaltma + Döküm Harcı
+                fiyat_SNBF_27A = 1.25 * K_katsayisi * ((0.00046 * math.sqrt(mesafe_metre)) - 0.0046) + 29.28 + 80.00
 
-            # b) Boru Nakliyesi (SNBF.BF) - Ağırlık ton olarak hesaplanır.
             boru_malzeme_hacmi = math.pi * (((dis_cap_m/2)**2) - ((ic_cap_mm/2000)**2)) * uzunluk
             nakliye_boru_ton = boru_malzeme_hacmi * beton_yogunluk
             fiyat_SNBF_BF = 0
             if mesafe_boru > 0:
                 fiyat_SNBF_BF = A_katsayisi * K_katsayisi * ((0.0007 * mesafe_boru) + 0.01) * 1.0
 
-            # c) Kırmataş Nakliyesi (SNBF.14) - m³ olarak hesaplanır.
             nakliye_kirmatas_miktari = kum_dolgu_hacmi_net + (tuvenan_dolgu_hacmi if dolgu_pozu == "43.610.1064" else 0)
             fiyat_SNBF_14 = 0
             if mesafe_kirmatas > 0:
-                formul_F_kirmatas = A_katsayisi * K_katsayisi * ((0.0007 * mesafe_kirmatas) + 0.01) * kirmata_yogunluk
-                fiyat_SNBF_14 = formul_F_kirmatas + 29.28 # F + Yükleme/Boşaltma
+                fiyat_SNBF_14 = A_katsayisi * K_katsayisi * ((0.0007 * mesafe_kirmatas) + 0.01) * kirmata_yogunluk + 29.28
 
-            # 5. Tablo Hazırlığı (Ana İmalatlar)
+            # 6. Tablo Hazırlığı
             hesap_kalemleri = [
-                {"İşlem": "Kazı", "Poz": kazi_pozu, "Miktar": kazi_hacmi, "Birim": "m3"},
+                {"İşlem": "Kazı", "Poz": kazi_pozu, "Miktar": kazi_hacmi, "Birim": "m³"},
                 {"İşlem": f"Boru Döşeme (Ø{ic_cap_mm} mm)", "Poz": boru_pozu, "Miktar": uzunluk, "Birim": "m"},
-                {"İşlem": "Yataklama (Kırmataş/Kum)", "Poz": kum_pozu, "Miktar": kum_dolgu_hacmi_net, "Birim": "m3"},
-                {"İşlem": "Geri Dolgu", "Poz": dolgu_pozu, "Miktar": tuvenan_dolgu_hacmi, "Birim": "m3"}
+                {"İşlem": "Yataklama (Kırmataş/Kum)", "Poz": kum_pozu, "Miktar": kum_dolgu_hacmi_net, "Birim": "m³"},
+                {"İşlem": "Geri Dolgu", "Poz": dolgu_pozu, "Miktar": tuvenan_dolgu_hacmi, "Birim": "m³"}
             ]
+            
+            if hasir_celik_miktari_ton > 0:
+                hesap_kalemleri.append({"İşlem": "Boru İçi Hasır Çelik Donatı", "Poz": hasir_celik_pozu, "Miktar": hasir_celik_miktari_ton, "Birim": "ton"})
 
             maliyet_tablosu = []
             genel_toplam = 0.0
             
-            # İmalatların Excel'den Çekilmesi
+            # İmalatlar
             for kalem in hesap_kalemleri:
                 if kalem["Miktar"] > 0:
                     satir = df_fiyatlar[df_fiyatlar['POZ NO'].astype(str) == kalem["Poz"]].iloc[0]
@@ -121,16 +143,19 @@ if uploaded_file is not None:
                     tutar = kalem["Miktar"] * birim_fiyati
                     genel_toplam += tutar
                     maliyet_tablosu.append({
-                        "İşlem Adı": kalem["İşlem"], "Poz No": kalem["Poz"], 
-                        "Miktar": round(kalem["Miktar"], 2), "Birim": kalem["Birim"],
-                        f"Birim Fiyat (₺)": round(birim_fiyati, 2), "Toplam Tutar (₺)": round(tutar, 2)
+                        "İşlem Adı": kalem["İşlem"], 
+                        "Poz No": kalem["Poz"], 
+                        "Miktar": format_quantity(kalem["Miktar"]), 
+                        "Birim": kalem["Birim"],
+                        "Birim Fiyat": format_currency(birim_fiyati), 
+                        "Toplam Tutar": format_currency(tutar)
                     })
             
-            # Dinamik Nakliyelerin Eklenmesi
+            # Nakliyeler
             nakliyeler = [
-                {"İşlem": "Kazı Hafriyat Nakliyesi", "Poz": "SNBF.27-A", "Miktar": nakliye_kazi_miktari, "Birim": "m3", "Fiyat": fiyat_SNBF_27A},
+                {"İşlem": "Kazı Hafriyat Nakliyesi", "Poz": "SNBF.27-A", "Miktar": nakliye_kazi_miktari, "Birim": "m³", "Fiyat": fiyat_SNBF_27A},
                 {"İşlem": "Boru Nakliyesi", "Poz": "SNBF.BF", "Miktar": nakliye_boru_ton, "Birim": "ton", "Fiyat": fiyat_SNBF_BF},
-                {"İşlem": "Kırmataş/Kum Nakliyesi", "Poz": "SNBF.14", "Miktar": nakliye_kirmatas_miktari, "Birim": "m3", "Fiyat": fiyat_SNBF_14}
+                {"İşlem": "Kırmataş/Kum Nakliyesi", "Poz": "SNBF.14", "Miktar": nakliye_kirmatas_miktari, "Birim": "m³", "Fiyat": fiyat_SNBF_14}
             ]
             
             for nak in nakliyeler:
@@ -138,22 +163,28 @@ if uploaded_file is not None:
                     tutar = nak["Miktar"] * nak["Fiyat"]
                     genel_toplam += tutar
                     maliyet_tablosu.append({
-                        "İşlem Adı": nak["İşlem"], "Poz No": nak["Poz"], 
-                        "Miktar": round(nak["Miktar"], 2), "Birim": nak["Birim"],
-                        f"Birim Fiyat (₺)": round(nak["Fiyat"], 2), "Toplam Tutar (₺)": round(tutar, 2)
+                        "İşlem Adı": nak["İşlem"], 
+                        "Poz No": nak["Poz"], 
+                        "Miktar": format_quantity(nak["Miktar"]), 
+                        "Birim": nak["Birim"],
+                        "Birim Fiyat": format_currency(nak["Fiyat"]), 
+                        "Toplam Tutar": format_currency(tutar)
                     })
 
-            # --- 6. SONUÇ EKRANI ---
+            # --- 7. SONUÇ EKRANI ---
             st.divider()
-            donem_adi = str(secilen_donem).replace(" 00:00:00", "")
-            st.subheader(f"📊 {donem_adi} Dönemi Yaklaşık Maliyet Raporu")
+            st.subheader(f"📊 Eylül 2025 Dönemi Yaklaşık Maliyet Raporu")
             
-            st.info(f"📐 **Metraj Detayları:** İç Çap: Ø{ic_cap_mm} mm | Dış Çap: Ø{dis_cap_mm} mm | Boru Ağırlığı: {nakliye_boru_ton:.2f} Ton \n\n" 
-                    f"🚚 **Nakliye Formül Testi:** Kazı (12km) = {fiyat_SNBF_27A:.2f} ₺/m³ | Kırmataş (14km) = {fiyat_SNBF_14:.2f} ₺/m³ | Boru (12km) = {fiyat_SNBF_BF:.2f} ₺/ton")
+            donati_bilgisi = f" | Hasır Çelik: {format_quantity(hasir_celik_miktari_ton)} Ton ({format_quantity(hasir_celik_alani_m2)} m²)" if hasir_celik_miktari_ton > 0 else " | Hasır Çelik: Yok (Boru Çapı < 800mm)"
+            
+            st.info(f"📐 **Metraj Detayları:** İç Çap: Ø{ic_cap_mm} mm | Dış Çap: Ø{dis_cap_mm} mm | Boru Ağırlığı: {format_quantity(nakliye_boru_ton)} Ton{donati_bilgisi}\n\n" 
+                    f"🚚 **Nakliye Fiyat Testi:** Kazı ({format_quantity(mesafe_kazi)} km) = {format_currency(fiyat_SNBF_27A)} / m³ | Kırmataş ({format_quantity(mesafe_kirmatas)} km) = {format_currency(fiyat_SNBF_14)} / m³ | Boru ({format_quantity(mesafe_boru)} km) = {format_currency(fiyat_SNBF_BF)} / ton")
             
             df_sonuc = pd.DataFrame(maliyet_tablosu)
             st.dataframe(df_sonuc, use_container_width=True)
-            st.success(f"### 💰 KÂRSIZ GENEL TOPLAM: {genel_toplam:,.2f} ₺")
+            st.success(f"### 💰 KÂRSIZ GENEL TOPLAM: {format_currency(genel_toplam)}")
 
-else:
-    st.info("👈 Lütfen hesaplamaya başlamak için fiyatları içeren Excel dosyanızı yükleyin.")
+except FileNotFoundError:
+    st.error(f"⚠️ HATA: '{file_path}' dosyası bulunamadı. Lütfen Excel dosyasını GitHub deponuza yüklediğinizden emin olun.")
+except Exception as e:
+    st.error(f"⚠️ Kritik bir hata oluştu: {e}")
