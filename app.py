@@ -3,6 +3,7 @@ import pandas as pd
 import math
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.patheffects as pe
 
 # --- ÖZEL FORMATLAMA FONKSİYONLARI ---
 def format_currency(value):
@@ -32,12 +33,15 @@ def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
         dolgu_hatch = 'O'       
         dolgu_label = "Kırmataş Geri Dolgu"
         zemin_cizgi = 'black'
+        dolgu_text_color = '#333333'
     else:
         dolgu_color = '#deb887' 
         dolgu_hatch = '+'       
         dolgu_label = "Kazıdan Çıkan Toprak\n(Geri Dolgu)"
         zemin_cizgi = 'green'
+        dolgu_text_color = '#5c4033'
 
+    # Poligon Çizimleri
     dolgu_poly = patches.Polygon([
         (-kum_ust_genislik/2, kum_h), (kum_ust_genislik/2, kum_h),
         (ust_genislik/2, derinlik), (-ust_genislik/2, derinlik)
@@ -50,27 +54,42 @@ def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
     ], closed=True, facecolor='#f4a460', edgecolor='black', hatch='.', linewidth=1.5)
     ax.add_patch(yatak_poly)
     
+    # Boru Çizimi
     pipe_center_y = 0.10 + (dis_cap_m / 2)
     pipe_outer = patches.Circle((0, pipe_center_y), dis_cap_m/2, facecolor='#f0f0f0', edgecolor='black', linewidth=2)
     pipe_inner = patches.Circle((0, pipe_center_y), (ic_cap_mm/2000), facecolor='white', edgecolor='black', linewidth=1)
     ax.add_patch(pipe_outer)
     ax.add_patch(pipe_inner)
     
+    # Zemin Çizgisi
     ax.plot([-ust_genislik/2 - 0.5, ust_genislik/2 + 0.5], [derinlik, derinlik], color=zemin_cizgi, linewidth=3)
     
-    ax.text(0, derinlik + 0.15, zemin_tipi.upper(), ha='center', fontweight='bold', fontsize=12, color=zemin_cizgi)
-    ax.text(0, pipe_center_y, f"Ø{ic_cap_mm}", ha='center', va='center', fontweight='bold', fontsize=10)
-    ax.text(0, kum_h/2, "Yataklama\n& Gömlekleme", ha='center', va='center', fontsize=9, backgroundcolor='white')
-    ax.text(0, kum_h + (derinlik - kum_h)/2, dolgu_label, ha='center', va='center', fontsize=10, backgroundcolor='white')
+    # Dış stroke efekti (Yazıların taramalar üzerinde okunabilmesi için)
+    beyaz_gölge = [pe.withStroke(linewidth=4, foreground='white')]
     
+    # Metinler (Konumları ayrıştırıldı ve arkaplanlar kaldırılıp stroke eklendi)
+    ax.text(0, derinlik + 0.15, zemin_tipi.upper(), ha='center', fontweight='bold', fontsize=12, color=zemin_cizgi)
+    
+    # Boru çapı metni (Borunun tam ortasında)
+    ax.text(0, pipe_center_y, f"Ø{ic_cap_mm}", ha='center', va='center', fontweight='bold', fontsize=11, color='black', path_effects=beyaz_gölge)
+    
+    # Yataklama metni (Borunun üstü ile kum katmanının en üstü arasındaki 30cm'lik boşluğa ortalandı)
+    yataklama_y_konumu = 0.10 + dis_cap_m + 0.15
+    ax.text(0, yataklama_y_konumu, "Yataklama\n& Gömlekleme", ha='center', va='center', fontsize=10, fontweight='bold', color='#8b4513', path_effects=beyaz_gölge)
+    
+    # Dolgu metni (Dolgu katmanının tam ortası)
+    dolgu_y_konumu = kum_h + (derinlik - kum_h)/2
+    ax.text(0, dolgu_y_konumu, dolgu_label, ha='center', va='center', fontsize=11, fontweight='bold', color=dolgu_text_color, path_effects=beyaz_gölge)
+    
+    # Ölçü Okları
     ax.annotate('', xy=(-ust_genislik/2 - 0.2, 0), xytext=(-ust_genislik/2 - 0.2, derinlik), arrowprops=dict(arrowstyle='<->', color='red', lw=1.5))
-    ax.text(-ust_genislik/2 - 0.3, derinlik/2, f"HT = {derinlik:.2f} m", va='center', ha='right', color='red', rotation=90, fontweight='bold')
+    ax.text(-ust_genislik/2 - 0.3, derinlik/2, f"HT = {derinlik:.2f} m", va='center', ha='right', color='red', rotation=90, fontweight='bold', path_effects=beyaz_gölge)
     
     ax.annotate('', xy=(-taban_genisligi/2, -0.15), xytext=(taban_genisligi/2, -0.15), arrowprops=dict(arrowstyle='<->', color='blue', lw=1.5))
-    ax.text(0, -0.25, f"Taban = {taban_genisligi:.2f} m", ha='center', va='top', color='blue', fontweight='bold')
+    ax.text(0, -0.25, f"Taban = {taban_genisligi:.2f} m", ha='center', va='top', color='blue', fontweight='bold', path_effects=beyaz_gölge)
     
     if derinlik > 1.50:
-        ax.text(ust_genislik/2 + 0.1, derinlik/2, "1/3\nŞev", ha='left', va='center', color='black', fontweight='bold')
+        ax.text(ust_genislik/2 + 0.1, derinlik/2, "1/3\nŞev", ha='left', va='center', color='black', fontweight='bold', path_effects=beyaz_gölge)
     
     ax.set_aspect('equal')
     ax.axis('off')
@@ -184,7 +203,6 @@ try:
 
             maliyet_tablosu = []
             
-            # Helper fonksiyon yerine iç içe döngüde tutarları dışarıya çıkartıyoruz
             def satir_hesapla(islem, poz, miktar, birim, karsiz_fiyat):
                 if miktar > 0 and karsiz_fiyat > 0:
                     karli_fiyat = karsiz_fiyat * k_carpan
