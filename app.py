@@ -5,54 +5,45 @@ import math
 # --- 1. ARAYÜZ VE BAŞLIK ---
 st.set_page_config(page_title="Altyapı Yaklaşık Maliyet Motoru", layout="wide", page_icon="🏗️")
 st.title("🚧 Altyapı Metraj ve Kârsız Yaklaşık Maliyet Motoru")
-st.markdown("İdarelerin (İLBANK/KGM) yayınladığı resmi kârsız birim fiyatları baz alarak metraj ve maliyet hesaplar. Ana iş kalemlerine ait pozlar tam otomatiktir.")
+st.markdown("İdarelerin (İLBANK/KGM) yayınladığı resmi kârsız birim fiyatları baz alarak metraj ve maliyet hesaplar. Metrajlar Tip Hendek Kesitlerine (Dış çap ve şev kurallarına) uygundur.")
 
 # --- 2. VERİ YÜKLEME ---
 st.sidebar.header("1. Fiyat Veritabanı (Excel)")
 uploaded_file = st.sidebar.file_uploader("Birim Fiyat Excel Dosyasını Yükleyin", type=["xlsx", "xls"])
 
 if uploaded_file is not None:
-    # Excel'i oku
     df_fiyatlar = pd.read_excel(uploaded_file)
-    
-    # Sabit sütunları ayırarak sadece fiyat içeren dönem sütunlarını bul
     sabit_sutunlar = ['SIRA NO', 'POZ NO', 'İŞ KALEMİNİN ADI VE KISA AÇIKLAMASI', 'BİRİMİ']
     donem_sutunlari = [col for col in df_fiyatlar.columns if col not in sabit_sutunlar]
-    
-    # Poz Listesini Sözlüğe Çevir
     poz_listesi = df_fiyatlar['POZ NO'].astype(str).tolist()
     
     # --- 3. KULLANICI GİRİŞ PARAMETRELERİ ---
     st.sidebar.header("2. Metraj Parametreleri")
-    
     secilen_donem = st.sidebar.selectbox("Fiyat Dönemini Seçin", donem_sutunlari)
     
     uzunluk = st.sidebar.number_input("Hat Uzunluğu (m)", min_value=0.0, value=100.0)
     derinlik = st.sidebar.number_input("Ortalama Kazı Derinliği (m)", min_value=0.0, value=2.0)
     zemin_tipi = st.sidebar.selectbox("Zemin Tipi", ["Yeşil Alan", "Sert Zemin (Asfalt/Beton)"])
     
-    # Boru çapları liste olarak sunulur (Kullanıcının yanlış çap girmesi engellenir)
     boru_caplari = [300, 400, 500, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400]
-    cap_mm = st.sidebar.selectbox("Boru Çapı (mm)", boru_caplari)
+    ic_cap_mm = st.sidebar.selectbox("Boru İç Çapı (mm)", boru_caplari)
 
     # --- OTOMATİK POZ ATAMALARI ---
-    # 1. Sabit Pozlar
     kazi_pozu = "KGM 14.210"
     kum_pozu = "43.610.1053"
     dolgu_pozu = "43.610.1064" if "Sert Zemin" in zemin_tipi else "43.610.1004"
     
-    # 2. Çapa Göre Otomatik Boru Pozu Ataması
     boru_poz_sozlugu = {
         300: "43.526.1123", 400: "43.526.1124", 500: "43.526.1125", 600: "43.526.1126",
         800: "43.526.1162", 1000: "43.526.1163", 1200: "43.526.1164", 1400: "43.526.1165",
         1600: "43.526.1201", 1800: "43.526.1202", 2000: "43.526.1203", 2200: "43.526.1204", 
         2400: "43.526.1205"
     }
-    boru_pozu = boru_poz_sozlugu.get(cap_mm)
+    boru_pozu = boru_poz_sozlugu.get(ic_cap_mm)
 
     st.sidebar.markdown("---")
     st.sidebar.header("3. Otomatik Atanan Pozlar")
-    st.sidebar.success(f"**Kazı:** {kazi_pozu}\n\n**Yataklama:** {kum_pozu}\n\n**Geri Dolgu:** {dolgu_pozu}\n\n**Boru (Ø{cap_mm}):** {boru_pozu}")
+    st.sidebar.success(f"**Kazı:** {kazi_pozu}\n\n**Yataklama:** {kum_pozu}\n\n**Geri Dolgu:** {dolgu_pozu}\n\n**Boru (Ø{ic_cap_mm}):** {boru_pozu}")
 
     st.sidebar.header("4. İlave İş Kalemleri (Opsiyonel)")
     nakliye_pozu_1 = st.sidebar.selectbox("Nakliye Pozu", ["Seçilmedi"] + poz_listesi)
@@ -65,39 +56,60 @@ if uploaded_file is not None:
 
     # --- 4. HESAPLAMA MOTORU ---
     if st.button("Yaklaşık Maliyeti Çıkar", type="primary", use_container_width=True):
-        # Seçilen pozların Excel'de olup olmadığını güvenlik amacıyla kontrol et
         eksik_pozlar = [poz for poz in [kazi_pozu, kum_pozu, dolgu_pozu, boru_pozu] if poz not in poz_listesi]
         
         if eksik_pozlar:
             st.error(f"⚠️ Hata: Yüklediğiniz Excel dosyasında şu otomatik pozlar bulunamadı: {', '.join(eksik_pozlar)}")
         else:
-            # 1. Geometrik Kesit ve Şev Hesabı
-            cap_m = cap_mm / 1000.0
-            taban_genisligi = cap_m + 0.60 
+            # 1. Boru Dış Çapı Hesabı (Ortalama Beton Boru Et Kalınlıkları)
+            et_kalinlikleri_mm = {
+                300: 50, 400: 50, 500: 60, 600: 70, 800: 90, 1000: 110, 
+                1200: 130, 1400: 150, 1600: 170, 1800: 180, 2000: 200, 
+                2200: 220, 2400: 240
+            }
+            et_kalinligi = et_kalinlikleri_mm.get(ic_cap_mm, ic_cap_mm * 0.1)
+            dis_cap_mm = ic_cap_mm + (2 * et_kalinligi)
+            dis_cap_m = dis_cap_mm / 1000.0
+
+            # 2. Geometrik Kesit ve Şev Hesabı (Tip Kesite Göre)
+            taban_genisligi = dis_cap_m + 0.40 # 400 mm + B. DIŞ ÇAPI
             
             if derinlik > 1.50: 
-                ekstra_genislik = (derinlik - 1.50) * (1/3) * 2
-                ortalama_genislik = taban_genisligi + (ekstra_genislik / 2)
+                # 1/3 Şevli Kazı: Ortalama genişlik = Taban + (Derinlik / 3)
+                ortalama_genislik = taban_genisligi + (derinlik / 3)
             else:
+                # Dik Kesit
                 ortalama_genislik = taban_genisligi
 
-            # 2. Hacim (Metraj) Hesapları
+            # 3. Hacim (Metraj) Hesapları
             kazi_hacmi = ortalama_genislik * derinlik * uzunluk
-            boru_hacmi = math.pi * ((cap_m / 2) ** 2) * uzunluk
-            kum_dolgu_yuksekligi = 0.10 + cap_m + 0.30
-            kum_dolgu_hacmi_brut = taban_genisligi * kum_dolgu_yuksekligi * uzunluk
-            kum_dolgu_hacmi_net = kum_dolgu_hacmi_brut - boru_hacmi
+            boru_hacmi_dis = math.pi * ((dis_cap_m / 2) ** 2) * uzunluk
+            
+            # Kum dolgu yüksekliği = 100mm (alt) + Dış Çap + 300mm (üst)
+            kum_dolgu_yuksekligi = 0.10 + dis_cap_m + 0.30
+            
+            # Kum dolgu katmanı için şevli/şevsiz ortalama genişlik hesabı
+            if derinlik > 1.50:
+                kum_ortalama_genislik = taban_genisligi + (kum_dolgu_yuksekligi / 3)
+            else:
+                kum_ortalama_genislik = taban_genisligi
+                
+            kum_dolgu_hacmi_brut = kum_ortalama_genislik * kum_dolgu_yuksekligi * uzunluk
+            kum_dolgu_hacmi_net = kum_dolgu_hacmi_brut - boru_hacmi_dis
+            
             tuvenan_dolgu_hacmi = kazi_hacmi - kum_dolgu_hacmi_brut
             
             asfalt_kesme_metraj, asfalt_kirma_hacmi = 0, 0
             if "Sert Zemin" in zemin_tipi:
                 asfalt_kesme_metraj = uzunluk * 2 
-                asfalt_kirma_hacmi = ortalama_genislik * 0.20 * uzunluk 
+                # Üst genişliğe göre kırma hacmi (Üst Genişlik = Ortalama + Şev Payı)
+                ust_genislik = taban_genisligi + (derinlik * (2/3)) if derinlik > 1.50 else taban_genisligi
+                asfalt_kirma_hacmi = ust_genislik * 0.20 * uzunluk 
 
-            # 3. Tablo Hazırlığı
+            # 4. Tablo Hazırlığı
             hesap_kalemleri = [
                 {"İşlem": "Kazı", "Poz": kazi_pozu, "Miktar": kazi_hacmi, "Birim": "m3"},
-                {"İşlem": f"Boru Döşeme (Ø{cap_mm} mm)", "Poz": boru_pozu, "Miktar": uzunluk, "Birim": "m"},
+                {"İşlem": f"Boru Döşeme (Ø{ic_cap_mm} mm)", "Poz": boru_pozu, "Miktar": uzunluk, "Birim": "m"},
                 {"İşlem": "Yataklama (Kum)", "Poz": kum_pozu, "Miktar": kum_dolgu_hacmi_net, "Birim": "m3"},
                 {"İşlem": "Geri Dolgu", "Poz": dolgu_pozu, "Miktar": tuvenan_dolgu_hacmi, "Birim": "m3"}
             ]
@@ -114,14 +126,11 @@ if uploaded_file is not None:
             maliyet_tablosu = []
             genel_toplam = 0.0
             
-            # 4. Fiyatları Excel'den Çekip Çarpma
             for kalem in hesap_kalemleri:
                 if kalem["Miktar"] > 0:
                     satir = df_fiyatlar[df_fiyatlar['POZ NO'].astype(str) == kalem["Poz"]].iloc[0]
-                    
                     birim_fiyati = satir[secilen_donem] 
                     tanim = satir['İŞ KALEMİNİN ADI VE KISA AÇIKLAMASI']
-                    
                     tutar = kalem["Miktar"] * birim_fiyati
                     genel_toplam += tutar
                     
@@ -139,10 +148,12 @@ if uploaded_file is not None:
             st.divider()
             donem_adi = str(secilen_donem).replace(" 00:00:00", "")
             st.subheader(f"📊 {donem_adi} Dönemi Yaklaşık Maliyet Raporu")
-            st.caption(f"**Uygulanan Parametreler:** {uzunluk} m Uzunluk | Ø{cap_mm} mm Boru | {derinlik} m Derinlik | Zemin: {zemin_tipi}")
+            
+            # Kullanıcıya hesap detaylarını göster
+            st.info(f"📐 **Geometrik Veriler:** İç Çap: Ø{ic_cap_mm} mm | Dış Çap: Ø{dis_cap_mm} mm | Taban Genişliği: {taban_genisligi:.2f} m | Kesit Tipi: {'Şevli (1/3 Eğimi)' if derinlik > 1.50 else 'Dik Kesit'}")
             
             st.dataframe(pd.DataFrame(maliyet_tablosu), use_container_width=True)
             st.success(f"### 💰 KÂRSIZ GENEL TOPLAM: {genel_toplam:,.2f} ₺")
 
 else:
-    st.info("👈 Lütfen hesaplamaya başlamak için çoklu dönem fiyatlarını içeren Excel dosyanızı yükleyin.")
+    st.info("👈 Lütfen hesaplamaya başlamak için fiyatları içeren Excel dosyanızı yükleyin.")
