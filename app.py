@@ -153,7 +153,10 @@ try:
     st.sidebar.header("1. Metraj Parametreleri")
     
     uzunluk = st.sidebar.number_input("Hat Uzunluğu (m)", min_value=0.0, value=100.0, step=1.0)
-    derinlik = st.sidebar.number_input("Ortalama Kazı Derinliği (m)", min_value=0.0, value=2.0, step=1.0)
+    # Derinlik maksimum 10 metre ile sınırlandırıldı.
+    derinlik = st.sidebar.number_input("Ortalama Kazı Derinliği (m)", min_value=0.0, max_value=10.0, value=2.0, step=1.0)
+    st.sidebar.caption("⚠️ *10m üzeri kazılar özel iksa/güvenlik projesi gerektirir.*")
+    
     zemin_tipi = st.sidebar.selectbox("Zemin Tipi", ["Yeşil Alan", "Sert Zemin (Asfalt/Beton)"])
     
     boru_caplari = [300, 400, 500, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400]
@@ -205,7 +208,8 @@ try:
             dis_cap_mm = ic_cap_mm + (2 * et_kalinligi)
             dis_cap_m = dis_cap_mm / 1000.0
 
-            taban_genisligi = dis_cap_m + 0.40
+            # Taban genişliği revize edildi (Boru dış çapı + 100 cm)
+            taban_genisligi = dis_cap_m + 1.00
             ortalama_genislik = taban_genisligi + (derinlik / 3) if derinlik > 1.50 else taban_genisligi
 
             kazi_hacmi = ortalama_genislik * derinlik * uzunluk
