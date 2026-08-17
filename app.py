@@ -318,7 +318,6 @@ try:
                         return ['background-color: transparent; color: black; font-weight: bold; font-size: 1.15em;'] * len(row)
                     return [''] * len(row)
 
-                # Sütun hizalamaları (text-align) uygulanıyor
                 styled_df = df_sonuc_gorsel.style.set_properties(
                     subset=['İşlem Adı'], **{'text-align': 'left'}
                 ).set_properties(
@@ -327,7 +326,6 @@ try:
                     subset=['Miktar', 'Kârsız Birim Fiyat', 'Kârlı Birim Fiyat', 'Kârsız Tutar', 'Kârlı Tutar'], **{'text-align': 'right'}
                 ).apply(style_last_row, axis=1)
                 
-                # Başlıkları formatlama (Merkezi Hizalama Dahil)
                 styled_df = styled_df.set_table_styles([
                     {'selector': 'th', 'props': [('background-color', '#493628'), ('color', '#E4E0E1'), ('font-weight', 'bold'), ('text-align', 'center')]}
                 ])
@@ -345,7 +343,7 @@ try:
                 b64 = base64.b64encode(buffer.getvalue()).decode()
                 
                 excel_href = f'''
-                <div style="margin-top: 15px;">
+                <div style="margin-top: 5px;">
                     <a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" 
                        download="Altyapi_Yaklasik_Maliyet_Raporu.xlsx" 
                        style="display: inline-block; background-color: #217346; color: white; padding: 10px 20px; 
@@ -355,6 +353,15 @@ try:
                 </div>
                 '''
                 st.markdown(excel_href, unsafe_allow_html=True)
+                
+                # --- MOBİL UYUMLU METİN ÖZETİ (TABLO ALTINDA) ---
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.success(f"### 📈 GENEL TOPLAM (%{kar_orani} kârlı): {format_currency(genel_toplam_karli)}")
+                
+                if uzunluk > 0:
+                    metretul_maliyeti = genel_toplam_karli / uzunluk
+                    metretul_maliyeti_str = format_currency(metretul_maliyeti).replace('₺', '').strip()
+                    st.info(f"### 📏 Metretül Maliyeti: {metretul_maliyeti_str} TL/m")
                 
             with col2:
                 fig = cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi)
