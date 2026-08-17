@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import math
-import matplotlib
-matplotlib.use('Agg') # Sunucu donma çözümü 1
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.patheffects as pe
@@ -69,6 +67,7 @@ def format_quantity(value):
 
 def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
     fig, ax = plt.subplots(figsize=(6, 8), facecolor='#E4E0E1')
+    
     kum_h = 0.10 + dis_cap_m + 0.30 
     
     if derinlik > 1.50:
@@ -110,6 +109,7 @@ def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
     ax.add_patch(pipe_inner)
     
     ax.plot([-ust_genislik/2 - 0.5, ust_genislik/2 + 0.5], [derinlik, derinlik], color=zemin_cizgi, linewidth=3)
+    
     beyaz_gölge = [pe.withStroke(linewidth=4, foreground='#E4E0E1')]
     
     ax.text(0, derinlik + 0.15, zemin_tipi.upper(), ha='center', fontweight='bold', fontsize=12, color=zemin_cizgi)
@@ -148,7 +148,9 @@ try:
     st.sidebar.header("1. Metraj Parametreleri")
     
     uzunluk = st.sidebar.number_input("Hat Uzunluğu (m)", min_value=0.0, value=100.0, step=1.0)
-    derinlik = st.sidebar.number_input("Ortalama Kazı Derinliği (m)", min_value=0.0, max_value=10.0, value=2.0, step=1.0)
+    
+    # max_value kaldırıldı (Önbellek çökmesini engellemek için)
+    derinlik = st.sidebar.number_input("Ortalama Kazı Derinliği (m)", min_value=0.0, value=2.0, step=1.0)
     st.sidebar.caption("⚠️ *10m üzeri kazılar özel iksa/güvenlik projesi gerektirir.*")
     
     zemin_tipi = st.sidebar.selectbox("Zemin Tipi", ["Yeşil Alan", "Sert Zemin (Asfalt/Beton)"])
@@ -184,178 +186,178 @@ try:
     boru_pozu = boru_poz_sozlugu.get(ic_cap_mm)
 
     if st.button("HESAPLA", type="primary"):
-        gerekli_pozlar = [kazi_pozu, kum_pozu, dolgu_pozu, boru_pozu]
-        if ic_cap_mm >= 800:
-            gerekli_pozlar.append(hasir_celik_pozu)
-            
-        eksik_pozlar = [poz for poz in gerekli_pozlar if poz not in poz_listesi]
-        
-        if eksik_pozlar:
-            st.error(f"⚠️ Hata: 'Altyapı Birim Fiyatlar_2.xlsx' dosyasında şu otomatik pozlar bulunamadı: {', '.join(eksik_pozlar)}")
+        # YENİ KONTROL: Algoritma içinden derinlik kontrolü
+        if derinlik > 10.0:
+            st.error("⚠️ HATA: İş güvenliği ve teknik standartlar gereği ortalama kazı derinliği maksimum 10 metre olabilir. Daha derin kazılar için özel iksa veya kademeli kazı projesi gereklidir. Lütfen derinliği azaltın.")
         else:
-            et_kalinlikleri_mm = {300: 50, 400: 50, 500: 60, 600: 70, 800: 90, 1000: 110, 1200: 130, 1400: 150, 1600: 170, 1800: 180, 2000: 200, 2200: 220, 2400: 240}
-            et_kalinligi = et_kalinlikleri_mm.get(ic_cap_mm, ic_cap_mm * 0.1)
-            dis_cap_mm = ic_cap_mm + (2 * et_kalinligi)
-            dis_cap_m = dis_cap_mm / 1000.0
-
-            taban_genisligi = dis_cap_m + 1.00
-            ortalama_genislik = taban_genisligi + (derinlik / 3) if derinlik > 1.50 else taban_genisligi
-
-            kazi_hacmi = ortalama_genislik * derinlik * uzunluk
-            boru_hacmi_dis = math.pi * ((dis_cap_m / 2) ** 2) * uzunluk
-            kum_dolgu_yuksekligi = 0.10 + dis_cap_m + 0.30
-            kum_ortalama_genislik = taban_genisligi + (kum_dolgu_yuksekligi / 3) if derinlik > 1.50 else taban_genisligi
-            kum_dolgu_hacmi_brut = kum_ortalama_genislik * kum_dolgu_yuksekligi * uzunluk
-            kum_dolgu_hacmi_net = kum_dolgu_hacmi_brut - boru_hacmi_dis
-            tuvenan_dolgu_hacmi = kazi_hacmi - kum_dolgu_hacmi_brut
-
-            hasir_celik_miktari_ton = 0
+            gerekli_pozlar = [kazi_pozu, kum_pozu, dolgu_pozu, boru_pozu]
             if ic_cap_mm >= 800:
-                donati_capi_m = (ic_cap_mm + et_kalinligi) / 1000.0
-                hasir_celik_alani_m2 = (math.pi * donati_capi_m) * uzunluk
-                hasir_celik_miktari_ton = (hasir_celik_alani_m2 * 2.95) / 1000.0 
-
-            nakliye_kazi_miktari = kazi_hacmi - (tuvenan_dolgu_hacmi if dolgu_pozu == "43.610.1004" else 0)
-            fiyat_SNBF_27A = 1.25 * K_katsayisi * ((0.00046 * math.sqrt(mesafe_kazi * 1000)) - 0.0046) + 29.28 + 80.00 if mesafe_kazi > 0 else 0
-            boru_malzeme_hacmi = math.pi * (((dis_cap_m/2)**2) - ((ic_cap_mm/2000)**2)) * uzunluk
-            nakliye_boru_ton = boru_malzeme_hacmi * beton_yogunluk
-            fiyat_SNBF_BF = A_katsayisi * K_katsayisi * ((0.0007 * mesafe_boru) + 0.01) * 1.0 if mesafe_boru > 0 else 0
-            nakliye_kirmatas_miktari = kum_dolgu_hacmi_net + (tuvenan_dolgu_hacmi if dolgu_pozu == "43.610.1064" else 0)
-            fiyat_SNBF_14 = A_katsayisi * K_katsayisi * ((0.0007 * mesafe_kirmatas) + 0.01) * kirmata_yogunluk + 29.28 if mesafe_kirmatas > 0 else 0
-
-            hesap_kalemleri = [
-                {"İşlem": "Kazı", "Poz": kazi_pozu, "Miktar (Sayısal)": kazi_hacmi, "Birim": "m³"},
-                {"İşlem": f"Boru Döşeme (Ø{ic_cap_mm} mm)", "Poz": boru_pozu, "Miktar (Sayısal)": uzunluk, "Birim": "m"},
-                {"İşlem": "Yataklama (Kırmataş/Kum)", "Poz": kum_pozu, "Miktar (Sayısal)": kum_dolgu_hacmi_net, "Birim": "m³"},
-                {"İşlem": "Geri Dolgu", "Poz": dolgu_pozu, "Miktar (Sayısal)": tuvenan_dolgu_hacmi, "Birim": "m³"}
-            ]
-            if hasir_celik_miktari_ton > 0:
-                hesap_kalemleri.append({"İşlem": "Boru İçi Hasır Çelik Donatı", "Poz": hasir_celik_pozu, "Miktar (Sayısal)": hasir_celik_miktari_ton, "Birim": "ton"})
-
-            maliyet_tablosu_gorsel = []
-            maliyet_tablosu_excel = [] 
+                gerekli_pozlar.append(hasir_celik_pozu)
+                
+            eksik_pozlar = [poz for poz in gerekli_pozlar if poz not in poz_listesi]
             
-            def satir_hesapla(islem, poz, miktar, birim, karsiz_fiyat):
-                if miktar > 0 and karsiz_fiyat > 0:
-                    karli_fiyat = karsiz_fiyat * k_carpan
-                    karsiz_tutar = miktar * karsiz_fiyat
-                    karli_tutar = miktar * karli_fiyat
-                    
-                    maliyet_tablosu_gorsel.append({
-                        "İşlem Adı": islem, "Poz No": poz, 
-                        "Miktar": format_quantity(miktar), "Birim": birim,
-                        "Kârsız Birim Fiyat": format_currency(karsiz_fiyat), 
-                        "Kârlı Birim Fiyat": format_currency(karli_fiyat), 
-                        "Kârsız Tutar": format_currency(karsiz_tutar),
-                        "Kârlı Tutar": format_currency(karli_tutar)
-                    })
-                    
-                    maliyet_tablosu_excel.append({
-                        "İşlem Adı": islem, "Poz No": poz, 
-                        "Miktar": miktar, "Birim": birim,
-                        "Kârsız Birim Fiyat (TL)": karsiz_fiyat, 
-                        "Kârlı Birim Fiyat (TL)": karli_fiyat, 
-                        "Kârsız Tutar (TL)": karsiz_tutar,
-                        "Kârlı Tutar (TL)": karli_tutar
-                    })
-                    return karsiz_tutar, karli_tutar
-                return 0.0, 0.0
+            if eksik_pozlar:
+                st.error(f"⚠️ Hata: 'Altyapı Birim Fiyatlar_2.xlsx' dosyasında şu otomatik pozlar bulunamadı: {', '.join(eksik_pozlar)}")
+            else:
+                et_kalinlikleri_mm = {300: 50, 400: 50, 500: 60, 600: 70, 800: 90, 1000: 110, 1200: 130, 1400: 150, 1600: 170, 1800: 180, 2000: 200, 2200: 220, 2400: 240}
+                et_kalinligi = et_kalinlikleri_mm.get(ic_cap_mm, ic_cap_mm * 0.1)
+                dis_cap_mm = ic_cap_mm + (2 * et_kalinligi)
+                dis_cap_m = dis_cap_mm / 1000.0
 
-            genel_toplam_karsiz = 0.0
-            genel_toplam_karli = 0.0
+                # Çalışma payı eklendi (Boru dış çapı + 100 cm)
+                taban_genisligi = dis_cap_m + 1.00
+                ortalama_genislik = taban_genisligi + (derinlik / 3) if derinlik > 1.50 else taban_genisligi
 
-            for kalem in hesap_kalemleri:
-                karsiz_bf = df_fiyatlar[df_fiyatlar['POZ NO'].astype(str) == kalem["Poz"]].iloc[0][secilen_donem]
-                karsiz_t, karli_t = satir_hesapla(kalem["İşlem"], kalem["Poz"], kalem["Miktar (Sayısal)"], kalem["Birim"], karsiz_bf)
+                kazi_hacmi = ortalama_genislik * derinlik * uzunluk
+                boru_hacmi_dis = math.pi * ((dis_cap_m / 2) ** 2) * uzunluk
+                kum_dolgu_yuksekligi = 0.10 + dis_cap_m + 0.30
+                kum_ortalama_genislik = taban_genisligi + (kum_dolgu_yuksekligi / 3) if derinlik > 1.50 else taban_genisligi
+                kum_dolgu_hacmi_brut = kum_ortalama_genislik * kum_dolgu_yuksekligi * uzunluk
+                kum_dolgu_hacmi_net = kum_dolgu_hacmi_brut - boru_hacmi_dis
+                tuvenan_dolgu_hacmi = kazi_hacmi - kum_dolgu_hacmi_brut
+
+                hasir_celik_miktari_ton = 0
+                if ic_cap_mm >= 800:
+                    donati_capi_m = (ic_cap_mm + et_kalinligi) / 1000.0
+                    hasir_celik_alani_m2 = (math.pi * donati_capi_m) * uzunluk
+                    hasir_celik_miktari_ton = (hasir_celik_alani_m2 * 2.95) / 1000.0 
+
+                nakliye_kazi_miktari = kazi_hacmi - (tuvenan_dolgu_hacmi if dolgu_pozu == "43.610.1004" else 0)
+                fiyat_SNBF_27A = 1.25 * K_katsayisi * ((0.00046 * math.sqrt(mesafe_kazi * 1000)) - 0.0046) + 29.28 + 80.00 if mesafe_kazi > 0 else 0
+                boru_malzeme_hacmi = math.pi * (((dis_cap_m/2)**2) - ((ic_cap_mm/2000)**2)) * uzunluk
+                nakliye_boru_ton = boru_malzeme_hacmi * beton_yogunluk
+                fiyat_SNBF_BF = A_katsayisi * K_katsayisi * ((0.0007 * mesafe_boru) + 0.01) * 1.0 if mesafe_boru > 0 else 0
+                nakliye_kirmatas_miktari = kum_dolgu_hacmi_net + (tuvenan_dolgu_hacmi if dolgu_pozu == "43.610.1064" else 0)
+                fiyat_SNBF_14 = A_katsayisi * K_katsayisi * ((0.0007 * mesafe_kirmatas) + 0.01) * kirmata_yogunluk + 29.28 if mesafe_kirmatas > 0 else 0
+
+                hesap_kalemleri = [
+                    {"İşlem": "Kazı", "Poz": kazi_pozu, "Miktar (Sayısal)": kazi_hacmi, "Birim": "m³"},
+                    {"İşlem": f"Boru Döşeme (Ø{ic_cap_mm} mm)", "Poz": boru_pozu, "Miktar (Sayısal)": uzunluk, "Birim": "m"},
+                    {"İşlem": "Yataklama (Kırmataş/Kum)", "Poz": kum_pozu, "Miktar (Sayısal)": kum_dolgu_hacmi_net, "Birim": "m³"},
+                    {"İşlem": "Geri Dolgu", "Poz": dolgu_pozu, "Miktar (Sayısal)": tuvenan_dolgu_hacmi, "Birim": "m³"}
+                ]
+                if hasir_celik_miktari_ton > 0:
+                    hesap_kalemleri.append({"İşlem": "Boru İçi Hasır Çelik Donatı", "Poz": hasir_celik_pozu, "Miktar (Sayısal)": hasir_celik_miktari_ton, "Birim": "ton"})
+
+                maliyet_tablosu_gorsel = []
+                maliyet_tablosu_excel = [] 
+                
+                def satir_hesapla(islem, poz, miktar, birim, karsiz_fiyat):
+                    if miktar > 0 and karsiz_fiyat > 0:
+                        karli_fiyat = karsiz_fiyat * k_carpan
+                        karsiz_tutar = miktar * karsiz_fiyat
+                        karli_tutar = miktar * karli_fiyat
+                        
+                        maliyet_tablosu_gorsel.append({
+                            "İşlem Adı": islem, "Poz No": poz, 
+                            "Miktar": format_quantity(miktar), "Birim": birim,
+                            "Kârsız Birim Fiyat": format_currency(karsiz_fiyat), 
+                            "Kârlı Birim Fiyat": format_currency(karli_fiyat), 
+                            "Kârsız Tutar": format_currency(karsiz_tutar),
+                            "Kârlı Tutar": format_currency(karli_tutar)
+                        })
+                        
+                        maliyet_tablosu_excel.append({
+                            "İşlem Adı": islem, "Poz No": poz, 
+                            "Miktar": miktar, "Birim": birim,
+                            "Kârsız Birim Fiyat (TL)": karsiz_fiyat, 
+                            "Kârlı Birim Fiyat (TL)": karli_fiyat, 
+                            "Kârsız Tutar (TL)": karsiz_tutar,
+                            "Kârlı Tutar (TL)": karli_tutar
+                        })
+                        return karsiz_tutar, karli_tutar
+                    return 0.0, 0.0
+
+                genel_toplam_karsiz = 0.0
+                genel_toplam_karli = 0.0
+
+                for kalem in hesap_kalemleri:
+                    karsiz_bf = df_fiyatlar[df_fiyatlar['POZ NO'].astype(str) == kalem["Poz"]].iloc[0][secilen_donem]
+                    karsiz_t, karli_t = satir_hesapla(kalem["İşlem"], kalem["Poz"], kalem["Miktar (Sayısal)"], kalem["Birim"], karsiz_bf)
+                    genel_toplam_karsiz += karsiz_t
+                    genel_toplam_karli += karli_t
+                    
+                karsiz_t, karli_t = satir_hesapla("Kazı Hafriyat Nakliyesi", "SNBF.27-A", nakliye_kazi_miktari, "m³", fiyat_SNBF_27A)
                 genel_toplam_karsiz += karsiz_t
                 genel_toplam_karli += karli_t
                 
-            karsiz_t, karli_t = satir_hesapla("Kazı Hafriyat Nakliyesi", "SNBF.27-A", nakliye_kazi_miktari, "m³", fiyat_SNBF_27A)
-            genel_toplam_karsiz += karsiz_t
-            genel_toplam_karli += karli_t
-            
-            karsiz_t, karli_t = satir_hesapla("Boru Nakliyesi", "SNBF.BF", nakliye_boru_ton, "ton", fiyat_SNBF_BF)
-            genel_toplam_karsiz += karsiz_t
-            genel_toplam_karli += karli_t
-            
-            karsiz_t, karli_t = satir_hesapla("Kırmataş/Kum Nakliyesi", "SNBF.14", nakliye_kirmatas_miktari, "m³", fiyat_SNBF_14)
-            genel_toplam_karsiz += karsiz_t
-            genel_toplam_karli += karli_t
+                karsiz_t, karli_t = satir_hesapla("Boru Nakliyesi", "SNBF.BF", nakliye_boru_ton, "ton", fiyat_SNBF_BF)
+                genel_toplam_karsiz += karsiz_t
+                genel_toplam_karli += karli_t
+                
+                karsiz_t, karli_t = satir_hesapla("Kırmataş/Kum Nakliyesi", "SNBF.14", nakliye_kirmatas_miktari, "m³", fiyat_SNBF_14)
+                genel_toplam_karsiz += karsiz_t
+                genel_toplam_karli += karli_t
 
-            maliyet_tablosu_gorsel.append({
-                "İşlem Adı": "TOPLAM", "Poz No": "", 
-                "Miktar": "", "Birim": "",
-                "Kârsız Birim Fiyat": "", 
-                "Kârlı Birim Fiyat": "", 
-                "Kârsız Tutar": format_currency(genel_toplam_karsiz),
-                "Kârlı Tutar": format_currency(genel_toplam_karli)
-            })
+                maliyet_tablosu_gorsel.append({
+                    "İşlem Adı": "TOPLAM", "Poz No": "", 
+                    "Miktar": "", "Birim": "",
+                    "Kârsız Birim Fiyat": "", 
+                    "Kârlı Birim Fiyat": "", 
+                    "Kârsız Tutar": format_currency(genel_toplam_karsiz),
+                    "Kârlı Tutar": format_currency(genel_toplam_karli)
+                })
 
-            st.divider()
-            donati_bilgisi = f" | Hasır Çelik: {format_quantity(hasir_celik_miktari_ton)} Ton" if hasir_celik_miktari_ton > 0 else " | Hasır Çelik: Yok"
-            st.info(f"📐 **Metraj Detayları:** İç Çap: Ø{ic_cap_mm} mm | Dış Çap: Ø{dis_cap_mm} mm | Boru Ağırlığı: {format_quantity(nakliye_boru_ton)} Ton{donati_bilgisi}")
-            
-            col1, col2 = st.columns([7, 4])
-            
-            with col1:
-                df_sonuc_gorsel = pd.DataFrame(maliyet_tablosu_gorsel)
-                df_sonuc_gorsel.index = df_sonuc_gorsel.index + 1 
+                st.divider()
+                donati_bilgisi = f" | Hasır Çelik: {format_quantity(hasir_celik_miktari_ton)} Ton" if hasir_celik_miktari_ton > 0 else " | Hasır Çelik: Yok"
+                st.info(f"📐 **Metraj Detayları:** İç Çap: Ø{ic_cap_mm} mm | Dış Çap: Ø{dis_cap_mm} mm | Boru Ağırlığı: {format_quantity(nakliye_boru_ton)} Ton{donati_bilgisi}")
                 
-                def style_last_row(row):
-                    if row.name == df_sonuc_gorsel.index[-1]:
-                        return ['background-color: transparent; color: black; font-weight: bold; font-size: 1.15em;'] * len(row)
-                    return [''] * len(row)
+                col1, col2 = st.columns([7, 4])
+                
+                with col1:
+                    df_sonuc_gorsel = pd.DataFrame(maliyet_tablosu_gorsel)
+                    df_sonuc_gorsel.index = df_sonuc_gorsel.index + 1 
+                    
+                    def style_last_row(row):
+                        if row.name == df_sonuc_gorsel.index[-1]:
+                            return ['background-color: transparent; color: black; font-weight: bold; font-size: 1.15em;'] * len(row)
+                        return [''] * len(row)
 
-                styled_df = df_sonuc_gorsel.style.set_properties(
-                    subset=['İşlem Adı'], **{'text-align': 'left'}
-                ).set_properties(
-                    subset=['Poz No', 'Birim'], **{'text-align': 'center'}
-                ).set_properties(
-                    subset=['Miktar', 'Kârsız Birim Fiyat', 'Kârlı Birim Fiyat', 'Kârsız Tutar', 'Kârlı Tutar'], **{'text-align': 'right'}
-                ).apply(style_last_row, axis=1)
-                
-                styled_df = styled_df.set_table_styles([
-                    {'selector': 'th', 'props': [('background-color', '#493628'), ('color', '#E4E0E1'), ('font-weight', 'bold'), ('text-align', 'center')]}
-                ])
-                
-                st.dataframe(styled_df, use_container_width=True)
-                
-                df_sonuc_excel = pd.DataFrame(maliyet_tablosu_excel)
-                df_sonuc_excel.index = df_sonuc_excel.index + 1
-                
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    df_sonuc_excel.to_excel(writer, sheet_name='Yaklaşık Maliyet Raporu')
-                b64 = base64.b64encode(buffer.getvalue()).decode()
-                
-                excel_href = f'''
-                <div style="margin-top: 5px;">
-                    <a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" 
-                       download="Altyapi_Yaklasik_Maliyet_Raporu.xlsx" 
-                       style="display: inline-block; background-color: #217346; color: white; padding: 10px 20px; 
-                              text-decoration: none; border-radius: 5px; font-weight: bold;">
-                       📗 Excel Olarak İndir
-                    </a>
-                </div>
-                '''
-                st.markdown(excel_href, unsafe_allow_html=True)
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.success(f"### 📈 GENEL TOPLAM (%{kar_orani} kârlı): {format_currency(genel_toplam_karli)}")
-                
-                if uzunluk > 0:
-                    metretul_maliyeti = genel_toplam_karli / uzunluk
-                    metretul_maliyeti_str = format_currency(metretul_maliyeti).replace('₺', '').strip()
-                    st.info(f"### 📏 Metretül Maliyeti: {metretul_maliyeti_str} TL/m")
-                
-            with col2:
-                fig = cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi)
-                
-                # SUNUCU DONMA ÇÖZÜMÜ 2 (Resim olarak renderla ve göster)
-                buf = io.BytesIO()
-                fig.savefig(buf, format="png", bbox_inches='tight', dpi=150)
-                st.image(buf, use_container_width=True)
-                plt.close(fig) # Belleği temizle
+                    styled_df = df_sonuc_gorsel.style.set_properties(
+                        subset=['İşlem Adı'], **{'text-align': 'left'}
+                    ).set_properties(
+                        subset=['Poz No', 'Birim'], **{'text-align': 'center'}
+                    ).set_properties(
+                        subset=['Miktar', 'Kârsız Birim Fiyat', 'Kârlı Birim Fiyat', 'Kârsız Tutar', 'Kârlı Tutar'], **{'text-align': 'right'}
+                    ).apply(style_last_row, axis=1)
+                    
+                    styled_df = styled_df.set_table_styles([
+                        {'selector': 'th', 'props': [('background-color', '#493628'), ('color', '#E4E0E1'), ('font-weight', 'bold'), ('text-align', 'center')]}
+                    ])
+                    
+                    st.dataframe(styled_df, use_container_width=True)
+                    
+                    df_sonuc_excel = pd.DataFrame(maliyet_tablosu_excel)
+                    df_sonuc_excel.index = df_sonuc_excel.index + 1
+                    
+                    buffer = io.BytesIO()
+                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                        df_sonuc_excel.to_excel(writer, sheet_name='Yaklaşık Maliyet Raporu')
+                    b64 = base64.b64encode(buffer.getvalue()).decode()
+                    
+                    excel_href = f'''
+                    <div style="margin-top: 5px;">
+                        <a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" 
+                           download="Altyapi_Yaklasik_Maliyet_Raporu.xlsx" 
+                           style="display: inline-block; background-color: #217346; color: white; padding: 10px 20px; 
+                                  text-decoration: none; border-radius: 5px; font-weight: bold;">
+                           📗 Excel Olarak İndir
+                        </a>
+                    </div>
+                    '''
+                    st.markdown(excel_href, unsafe_allow_html=True)
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.success(f"### 📈 GENEL TOPLAM (%{kar_orani} kârlı): {format_currency(genel_toplam_karli)}")
+                    
+                    if uzunluk > 0:
+                        metretul_maliyeti = genel_toplam_karli / uzunluk
+                        metretul_maliyeti_str = format_currency(metretul_maliyeti).replace('₺', '').strip()
+                        st.info(f"### 📏 Metretül Maliyeti: {metretul_maliyeti_str} TL/m")
+                    
+                with col2:
+                    fig = cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi)
+                    st.pyplot(fig)
 
 except FileNotFoundError:
     st.error(f"⚠️ HATA: '{file_path}' dosyası bulunamadı. Lütfen Excel dosyasını GitHub deponuza yüklediğinizden emin olun.")
