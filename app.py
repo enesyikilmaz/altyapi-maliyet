@@ -29,15 +29,20 @@ st.markdown(
     /* HESAPLA Butonu Özel Tasarımı */
     div[data-testid="stButton"] > button {
         background-color: #493628 !important;
-        color: #E4E0E1 !important;
         border: none !important;
         font-weight: bold !important;
         padding: 10px 20px !important;
         border-radius: 5px !important;
-        width: auto !important; /* Butonu daraltır */
+        width: auto !important; 
+    }
+    /* Buton içindeki yazıyı kesin olarak beyaz yapar */
+    div[data-testid="stButton"] > button, div[data-testid="stButton"] > button p {
+        color: #FFFFFF !important;
     }
     div[data-testid="stButton"] > button:hover {
         background-color: #AB886D !important;
+    }
+    div[data-testid="stButton"] > button:hover p {
         color: #FFFFFF !important;
     }
     /* Bilgi ve Uyarı Kutuları Arka Planı */
@@ -147,7 +152,6 @@ try:
     # --- 2. KULLANICI GİRİŞ PARAMETRELERİ ---
     st.sidebar.header("1. Metraj Parametreleri")
     
-    # Düğmelerle artış 1.0 (tam sayı) olarak ayarlandı
     uzunluk = st.sidebar.number_input("Hat Uzunluğu (m)", min_value=0.0, value=100.0, step=1.0)
     derinlik = st.sidebar.number_input("Ortalama Kazı Derinliği (m)", min_value=0.0, value=2.0, step=1.0)
     zemin_tipi = st.sidebar.selectbox("Zemin Tipi", ["Yeşil Alan", "Sert Zemin (Asfalt/Beton)"])
@@ -186,7 +190,6 @@ try:
     boru_pozu = boru_poz_sozlugu.get(ic_cap_mm)
 
     # --- 4. HESAPLAMA MOTORU ---
-    # use_container_width kaldırıldı, CSS ile boyutlandırıldı
     if st.button("HESAPLA", type="primary"):
         gerekli_pozlar = [kazi_pozu, kum_pozu, dolgu_pozu, boru_pozu]
         if ic_cap_mm >= 800:
@@ -311,19 +314,19 @@ try:
                 # --- PANDAS STYLER: Satır ve Sütun Başlığı Formatlama ---
                 def style_last_row(row):
                     if row.name == df_sonuc_gorsel.index[-1]:
-                        return ['background-color: #493628; color: #E4E0E1; font-weight: bold;'] * len(row)
+                        # Dolgusuz (saydam), siyah yazı, 1 font büyük ve kalın (bold)
+                        return ['background-color: transparent; color: black; font-weight: bold; font-size: 1.15em;'] * len(row)
                     return [''] * len(row)
 
                 styled_df = df_sonuc_gorsel.style.apply(style_last_row, axis=1)
                 
-                # Başlıkları formatlama
                 styled_df = styled_df.set_table_styles([
                     {'selector': 'th', 'props': [('background-color', '#493628'), ('color', '#E4E0E1'), ('font-weight', 'bold')]}
                 ])
                 
                 st.dataframe(styled_df, use_container_width=True)
                 
-                # Excel İndirme Butonu (HTML ve Base64 Kullanarak)
+                # Excel İndirme Butonu
                 df_sonuc_excel = pd.DataFrame(maliyet_tablosu_excel)
                 df_sonuc_excel.index = df_sonuc_excel.index + 1
                 
