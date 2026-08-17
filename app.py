@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import math
+import matplotlib
+matplotlib.use('Agg') # BULUT SUNUCU DONMA ÇÖZÜMÜ (Pencere açmayı engeller)
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.patheffects as pe
@@ -153,7 +155,6 @@ try:
     st.sidebar.header("1. Metraj Parametreleri")
     
     uzunluk = st.sidebar.number_input("Hat Uzunluğu (m)", min_value=0.0, value=100.0, step=1.0)
-    # Derinlik maksimum 10 metre ile sınırlandırıldı.
     derinlik = st.sidebar.number_input("Ortalama Kazı Derinliği (m)", min_value=0.0, max_value=10.0, value=2.0, step=1.0)
     st.sidebar.caption("⚠️ *10m üzeri kazılar özel iksa/güvenlik projesi gerektirir.*")
     
@@ -208,7 +209,6 @@ try:
             dis_cap_mm = ic_cap_mm + (2 * et_kalinligi)
             dis_cap_m = dis_cap_mm / 1000.0
 
-            # Taban genişliği revize edildi (Boru dış çapı + 100 cm)
             taban_genisligi = dis_cap_m + 1.00
             ortalama_genislik = taban_genisligi + (derinlik / 3) if derinlik > 1.50 else taban_genisligi
 
@@ -318,7 +318,6 @@ try:
                 # --- PANDAS STYLER: Satır, Sütun ve Hizalama Formatlama ---
                 def style_last_row(row):
                     if row.name == df_sonuc_gorsel.index[-1]:
-                        # Dolgusuz (saydam), siyah yazı, 1 font büyük ve kalın (bold)
                         return ['background-color: transparent; color: black; font-weight: bold; font-size: 1.15em;'] * len(row)
                     return [''] * len(row)
 
@@ -370,6 +369,7 @@ try:
             with col2:
                 fig = cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi)
                 st.pyplot(fig)
+                plt.close(fig) # Sunucu belleğini temizler
 
 except FileNotFoundError:
     st.error(f"⚠️ HATA: '{file_path}' dosyası bulunamadı. Lütfen Excel dosyasını GitHub deponuza yüklediğinizden emin olun.")
