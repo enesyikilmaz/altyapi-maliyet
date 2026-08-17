@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import math
 import matplotlib
-matplotlib.use('Agg') # BULUT SUNUCU DONMA ÇÖZÜMÜ (Pencere açmayı engeller)
+matplotlib.use('Agg') # Sunucu donma çözümü 1
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.patheffects as pe
@@ -37,7 +37,6 @@ st.markdown(
         border-radius: 5px !important;
         width: auto !important; 
     }
-    /* Buton içindeki yazıyı kesin olarak beyaz yapar */
     div[data-testid="stButton"] > button, div[data-testid="stButton"] > button p {
         color: #FFFFFF !important;
     }
@@ -59,7 +58,6 @@ st.markdown(
 
 st.title("Kanal Kazısı Yaklaşık Maliyet Hesaplama")
 
-# --- ÖZEL FORMATLAMA FONKSİYONLARI ---
 def format_currency(value):
     formatted = f"{value:,.2f}"
     formatted = formatted.replace(',', 'X').replace('.', ',').replace('X', '.')
@@ -69,10 +67,8 @@ def format_quantity(value):
     formatted = f"{value:.2f}"
     return formatted.replace('.', ',')
 
-# --- DİNAMİK KESİT ÇİZİM FONKSİYONU ---
 def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
     fig, ax = plt.subplots(figsize=(6, 8), facecolor='#E4E0E1')
-    
     kum_h = 0.10 + dis_cap_m + 0.30 
     
     if derinlik > 1.50:
@@ -114,7 +110,6 @@ def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
     ax.add_patch(pipe_inner)
     
     ax.plot([-ust_genislik/2 - 0.5, ust_genislik/2 + 0.5], [derinlik, derinlik], color=zemin_cizgi, linewidth=3)
-    
     beyaz_gölge = [pe.withStroke(linewidth=4, foreground='#E4E0E1')]
     
     ax.text(0, derinlik + 0.15, zemin_tipi.upper(), ha='center', fontweight='bold', fontsize=12, color=zemin_cizgi)
@@ -141,7 +136,6 @@ def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
     
     return fig
 
-
 file_path = "Altyapı Birim Fiyatlar_2.xlsx"
 
 try:
@@ -151,7 +145,6 @@ try:
     secilen_donem = donem_sutunlari[0]
     poz_listesi = df_fiyatlar['POZ NO'].astype(str).tolist()
     
-    # --- 2. KULLANICI GİRİŞ PARAMETRELERİ ---
     st.sidebar.header("1. Metraj Parametreleri")
     
     uzunluk = st.sidebar.number_input("Hat Uzunluğu (m)", min_value=0.0, value=100.0, step=1.0)
@@ -159,11 +152,9 @@ try:
     st.sidebar.caption("⚠️ *10m üzeri kazılar özel iksa/güvenlik projesi gerektirir.*")
     
     zemin_tipi = st.sidebar.selectbox("Zemin Tipi", ["Yeşil Alan", "Sert Zemin (Asfalt/Beton)"])
-    
     boru_caplari = [300, 400, 500, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400]
     ic_cap_mm = st.sidebar.selectbox("Boru İç Çapı (mm)", boru_caplari)
 
-    # --- 3. NAKLİYE VE KÂR PARAMETRELERİ ---
     st.sidebar.header("2. Nakliye Mesafeleri (km)")
     mesafe_kazi = st.sidebar.number_input("Kazı Döküm Mesafesi (km)", min_value=0.0, value=12.0, step=1.0)
     mesafe_boru = st.sidebar.number_input("Boru Nakliye Mesafesi (km)", min_value=0.0, value=12.0, step=1.0)
@@ -179,7 +170,6 @@ try:
         kirmata_yogunluk = st.number_input("Kırmataş Yoğunluğu (t/m³)", value=1.60)
         beton_yogunluk = st.number_input("Beton Boru Yoğunluğu (t/m³)", value=2.40)
 
-    # --- OTOMATİK POZ ATAMALARI ---
     kazi_pozu = "KGM 14.210"
     kum_pozu = "43.610.1053"
     dolgu_pozu = "43.610.1064" if "Sert Zemin" in zemin_tipi else "43.610.1004"
@@ -193,7 +183,6 @@ try:
     }
     boru_pozu = boru_poz_sozlugu.get(ic_cap_mm)
 
-    # --- 4. HESAPLAMA MOTORU ---
     if st.button("HESAPLA", type="primary"):
         gerekli_pozlar = [kazi_pozu, kum_pozu, dolgu_pozu, boru_pozu]
         if ic_cap_mm >= 800:
@@ -293,7 +282,6 @@ try:
             genel_toplam_karsiz += karsiz_t
             genel_toplam_karli += karli_t
 
-            # --- GÖRSEL TABLOYA TOPLAM SATIRINI EKLEME ---
             maliyet_tablosu_gorsel.append({
                 "İşlem Adı": "TOPLAM", "Poz No": "", 
                 "Miktar": "", "Birim": "",
@@ -303,9 +291,7 @@ try:
                 "Kârlı Tutar": format_currency(genel_toplam_karli)
             })
 
-            # --- 5. SONUÇ EKRANI VE ÇİZİM ---
             st.divider()
-            
             donati_bilgisi = f" | Hasır Çelik: {format_quantity(hasir_celik_miktari_ton)} Ton" if hasir_celik_miktari_ton > 0 else " | Hasır Çelik: Yok"
             st.info(f"📐 **Metraj Detayları:** İç Çap: Ø{ic_cap_mm} mm | Dış Çap: Ø{dis_cap_mm} mm | Boru Ağırlığı: {format_quantity(nakliye_boru_ton)} Ton{donati_bilgisi}")
             
@@ -315,7 +301,6 @@ try:
                 df_sonuc_gorsel = pd.DataFrame(maliyet_tablosu_gorsel)
                 df_sonuc_gorsel.index = df_sonuc_gorsel.index + 1 
                 
-                # --- PANDAS STYLER: Satır, Sütun ve Hizalama Formatlama ---
                 def style_last_row(row):
                     if row.name == df_sonuc_gorsel.index[-1]:
                         return ['background-color: transparent; color: black; font-weight: bold; font-size: 1.15em;'] * len(row)
@@ -335,14 +320,12 @@ try:
                 
                 st.dataframe(styled_df, use_container_width=True)
                 
-                # Excel İndirme Butonu
                 df_sonuc_excel = pd.DataFrame(maliyet_tablosu_excel)
                 df_sonuc_excel.index = df_sonuc_excel.index + 1
                 
                 buffer = io.BytesIO()
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                     df_sonuc_excel.to_excel(writer, sheet_name='Yaklaşık Maliyet Raporu')
-                
                 b64 = base64.b64encode(buffer.getvalue()).decode()
                 
                 excel_href = f'''
@@ -357,7 +340,6 @@ try:
                 '''
                 st.markdown(excel_href, unsafe_allow_html=True)
                 
-                # --- MOBİL UYUMLU METİN ÖZETİ (TABLO ALTINDA) ---
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.success(f"### 📈 GENEL TOPLAM (%{kar_orani} kârlı): {format_currency(genel_toplam_karli)}")
                 
@@ -368,8 +350,12 @@ try:
                 
             with col2:
                 fig = cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi)
-                st.pyplot(fig)
-                plt.close(fig) # Sunucu belleğini temizler
+                
+                # SUNUCU DONMA ÇÖZÜMÜ 2 (Resim olarak renderla ve göster)
+                buf = io.BytesIO()
+                fig.savefig(buf, format="png", bbox_inches='tight', dpi=150)
+                st.image(buf, use_container_width=True)
+                plt.close(fig) # Belleği temizle
 
 except FileNotFoundError:
     st.error(f"⚠️ HATA: '{file_path}' dosyası bulunamadı. Lütfen Excel dosyasını GitHub deponuza yüklediğinizden emin olun.")
