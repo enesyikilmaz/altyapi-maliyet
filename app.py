@@ -311,17 +311,25 @@ try:
                 df_sonuc_gorsel = pd.DataFrame(maliyet_tablosu_gorsel)
                 df_sonuc_gorsel.index = df_sonuc_gorsel.index + 1 
                 
-                # --- PANDAS STYLER: Satır ve Sütun Başlığı Formatlama ---
+                # --- PANDAS STYLER: Satır, Sütun ve Hizalama Formatlama ---
                 def style_last_row(row):
                     if row.name == df_sonuc_gorsel.index[-1]:
                         # Dolgusuz (saydam), siyah yazı, 1 font büyük ve kalın (bold)
                         return ['background-color: transparent; color: black; font-weight: bold; font-size: 1.15em;'] * len(row)
                     return [''] * len(row)
 
-                styled_df = df_sonuc_gorsel.style.apply(style_last_row, axis=1)
+                # Sütun hizalamaları (text-align) uygulanıyor
+                styled_df = df_sonuc_gorsel.style.set_properties(
+                    subset=['İşlem Adı'], **{'text-align': 'left'}
+                ).set_properties(
+                    subset=['Poz No', 'Birim'], **{'text-align': 'center'}
+                ).set_properties(
+                    subset=['Miktar', 'Kârsız Birim Fiyat', 'Kârlı Birim Fiyat', 'Kârsız Tutar', 'Kârlı Tutar'], **{'text-align': 'right'}
+                ).apply(style_last_row, axis=1)
                 
+                # Başlıkları formatlama (Merkezi Hizalama Dahil)
                 styled_df = styled_df.set_table_styles([
-                    {'selector': 'th', 'props': [('background-color', '#493628'), ('color', '#E4E0E1'), ('font-weight', 'bold')]}
+                    {'selector': 'th', 'props': [('background-color', '#493628'), ('color', '#E4E0E1'), ('font-weight', 'bold'), ('text-align', 'center')]}
                 ])
                 
                 st.dataframe(styled_df, use_container_width=True)
