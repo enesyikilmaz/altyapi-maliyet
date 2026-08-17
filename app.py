@@ -11,7 +11,6 @@ import base64
 st.set_page_config(page_title="Kanal Kazısı Yaklaşık Maliyet", layout="wide")
 
 # --- ÖZEL RENK PALETİ VE CSS ---
-# Seçilen Palet: e4e0e1 (Arka plan), d6c0b3 (Menü), ab886d (Vurgu), 493628 (Metin)
 st.markdown(
     """
     <style>
@@ -27,16 +26,19 @@ st.markdown(
     h1, h2, h3, h4, p, label, .stMarkdown {
         color: #493628 !important;
     }
-    /* Birincil Buton (Hesapla Butonu) */
+    /* HESAPLA Butonu Özel Tasarımı */
     div[data-testid="stButton"] > button {
-        background-color: #AB886D !important;
-        color: #FFFFFF !important;
-        border: none !important;
-        font-weight: bold !important;
-    }
-    div[data-testid="stButton"] > button:hover {
         background-color: #493628 !important;
         color: #E4E0E1 !important;
+        border: none !important;
+        font-weight: bold !important;
+        padding: 10px 20px !important;
+        border-radius: 5px !important;
+        width: auto !important; /* Butonu daraltır */
+    }
+    div[data-testid="stButton"] > button:hover {
+        background-color: #AB886D !important;
+        color: #FFFFFF !important;
     }
     /* Bilgi ve Uyarı Kutuları Arka Planı */
     .stAlert {
@@ -62,7 +64,6 @@ def format_quantity(value):
 
 # --- DİNAMİK KESİT ÇİZİM FONKSİYONU ---
 def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
-    # Çizim arka planını yeni palete uyumlu hale getirdik
     fig, ax = plt.subplots(figsize=(6, 8), facecolor='#E4E0E1')
     
     kum_h = 0.10 + dis_cap_m + 0.30 
@@ -81,7 +82,7 @@ def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
         zemin_cizgi = 'black'
         dolgu_text_color = '#493628'
     else:
-        dolgu_color = '#AB886D' # Yeni paletten toprak rengi
+        dolgu_color = '#AB886D' 
         dolgu_hatch = '+'       
         dolgu_label = "Kazıdan Çıkan Toprak\n(Geri Dolgu)"
         zemin_cizgi = '#493628'
@@ -146,8 +147,9 @@ try:
     # --- 2. KULLANICI GİRİŞ PARAMETRELERİ ---
     st.sidebar.header("1. Metraj Parametreleri")
     
-    uzunluk = st.sidebar.number_input("Hat Uzunluğu (m)", min_value=0.0, value=100.0)
-    derinlik = st.sidebar.number_input("Ortalama Kazı Derinliği (m)", min_value=0.0, value=2.0)
+    # Düğmelerle artış 1.0 (tam sayı) olarak ayarlandı
+    uzunluk = st.sidebar.number_input("Hat Uzunluğu (m)", min_value=0.0, value=100.0, step=1.0)
+    derinlik = st.sidebar.number_input("Ortalama Kazı Derinliği (m)", min_value=0.0, value=2.0, step=1.0)
     zemin_tipi = st.sidebar.selectbox("Zemin Tipi", ["Yeşil Alan", "Sert Zemin (Asfalt/Beton)"])
     
     boru_caplari = [300, 400, 500, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400]
@@ -184,7 +186,8 @@ try:
     boru_pozu = boru_poz_sozlugu.get(ic_cap_mm)
 
     # --- 4. HESAPLAMA MOTORU ---
-    if st.button("Yaklaşık Maliyeti Çıkar", type="primary", use_container_width=True):
+    # use_container_width kaldırıldı, CSS ile boyutlandırıldı
+    if st.button("HESAPLA", type="primary"):
         gerekli_pozlar = [kazi_pozu, kum_pozu, dolgu_pozu, boru_pozu]
         if ic_cap_mm >= 800:
             gerekli_pozlar.append(hasir_celik_pozu)
@@ -234,7 +237,7 @@ try:
                 hesap_kalemleri.append({"İşlem": "Boru İçi Hasır Çelik Donatı", "Poz": hasir_celik_pozu, "Miktar (Sayısal)": hasir_celik_miktari_ton, "Birim": "ton"})
 
             maliyet_tablosu_gorsel = []
-            maliyet_tablosu_excel = [] # Excel'de sayısal işlem yapılabilmesi için formatlanmamış liste
+            maliyet_tablosu_excel = [] 
             
             def satir_hesapla(islem, poz, miktar, birim, karsiz_fiyat):
                 if miktar > 0 and karsiz_fiyat > 0:
@@ -242,7 +245,6 @@ try:
                     karsiz_tutar = miktar * karsiz_fiyat
                     karli_tutar = miktar * karli_fiyat
                     
-                    # Arayüz İçin (Formatlı)
                     maliyet_tablosu_gorsel.append({
                         "İşlem Adı": islem, "Poz No": poz, 
                         "Miktar": format_quantity(miktar), "Birim": birim,
@@ -252,7 +254,6 @@ try:
                         "Kârlı Tutar": format_currency(karli_tutar)
                     })
                     
-                    # Excel İçin (Sayısal)
                     maliyet_tablosu_excel.append({
                         "İşlem Adı": islem, "Poz No": poz, 
                         "Miktar": miktar, "Birim": birim,
@@ -285,6 +286,16 @@ try:
             genel_toplam_karsiz += karsiz_t
             genel_toplam_karli += karli_t
 
+            # --- GÖRSEL TABLOYA TOPLAM SATIRINI EKLEME ---
+            maliyet_tablosu_gorsel.append({
+                "İşlem Adı": "TOPLAM", "Poz No": "", 
+                "Miktar": "", "Birim": "",
+                "Kârsız Birim Fiyat": "", 
+                "Kârlı Birim Fiyat": "", 
+                "Kârsız Tutar": format_currency(genel_toplam_karsiz),
+                "Kârlı Tutar": format_currency(genel_toplam_karli)
+            })
+
             # --- 5. SONUÇ EKRANI VE ÇİZİM ---
             st.divider()
             
@@ -296,7 +307,21 @@ try:
             with col1:
                 df_sonuc_gorsel = pd.DataFrame(maliyet_tablosu_gorsel)
                 df_sonuc_gorsel.index = df_sonuc_gorsel.index + 1 
-                st.dataframe(df_sonuc_gorsel, use_container_width=True)
+                
+                # --- PANDAS STYLER: Satır ve Sütun Başlığı Formatlama ---
+                def style_last_row(row):
+                    if row.name == df_sonuc_gorsel.index[-1]:
+                        return ['background-color: #493628; color: #E4E0E1; font-weight: bold;'] * len(row)
+                    return [''] * len(row)
+
+                styled_df = df_sonuc_gorsel.style.apply(style_last_row, axis=1)
+                
+                # Başlıkları formatlama
+                styled_df = styled_df.set_table_styles([
+                    {'selector': 'th', 'props': [('background-color', '#493628'), ('color', '#E4E0E1'), ('font-weight', 'bold')]}
+                ])
+                
+                st.dataframe(styled_df, use_container_width=True)
                 
                 # Excel İndirme Butonu (HTML ve Base64 Kullanarak)
                 df_sonuc_excel = pd.DataFrame(maliyet_tablosu_excel)
@@ -309,17 +334,16 @@ try:
                 b64 = base64.b64encode(buffer.getvalue()).decode()
                 
                 excel_href = f'''
-                <a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" 
-                   download="Altyapi_Yaklasik_Maliyet_Raporu.xlsx" 
-                   style="display: inline-block; background-color: #217346; color: white; padding: 10px 20px; 
-                          text-decoration: none; border-radius: 5px; font-weight: bold; margin-bottom: 20px;">
-                   📗 Excel Olarak İndir
-                </a>
+                <div style="margin-top: 15px;">
+                    <a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" 
+                       download="Altyapi_Yaklasik_Maliyet_Raporu.xlsx" 
+                       style="display: inline-block; background-color: #217346; color: white; padding: 10px 20px; 
+                              text-decoration: none; border-radius: 5px; font-weight: bold;">
+                       📗 Excel Olarak İndir
+                    </a>
+                </div>
                 '''
                 st.markdown(excel_href, unsafe_allow_html=True)
-                
-                st.write(f"**💰 KÂRSIZ GENEL TOPLAM:** {format_currency(genel_toplam_karsiz)}")
-                st.write(f"**📈 KÂRLI GENEL TOPLAM (%{kar_orani}):** {format_currency(genel_toplam_karli)}")
                 
             with col2:
                 fig = cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi)
