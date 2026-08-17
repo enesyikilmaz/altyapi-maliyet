@@ -4,6 +4,51 @@ import math
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.patheffects as pe
+import io
+import base64
+
+# --- ARAYÜZ VE BAŞLIK ---
+st.set_page_config(page_title="Kanal Kazısı Yaklaşık Maliyet", layout="wide")
+
+# --- ÖZEL RENK PALETİ VE CSS ---
+# Seçilen Palet: e4e0e1 (Arka plan), d6c0b3 (Menü), ab886d (Vurgu), 493628 (Metin)
+st.markdown(
+    """
+    <style>
+    /* Ana Arka Plan */
+    [data-testid="stAppViewContainer"] {
+        background-color: #E4E0E1;
+    }
+    /* Sol Menü Arka Planı */
+    [data-testid="stSidebar"] {
+        background-color: #D6C0B3;
+    }
+    /* Metin ve Başlık Renkleri */
+    h1, h2, h3, h4, p, label, .stMarkdown {
+        color: #493628 !important;
+    }
+    /* Birincil Buton (Hesapla Butonu) */
+    div[data-testid="stButton"] > button {
+        background-color: #AB886D !important;
+        color: #FFFFFF !important;
+        border: none !important;
+        font-weight: bold !important;
+    }
+    div[data-testid="stButton"] > button:hover {
+        background-color: #493628 !important;
+        color: #E4E0E1 !important;
+    }
+    /* Bilgi ve Uyarı Kutuları Arka Planı */
+    .stAlert {
+        background-color: rgba(214, 192, 179, 0.4) !important;
+        color: #493628 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.title("Kanal Kazısı Yaklaşık Maliyet Hesaplama")
 
 # --- ÖZEL FORMATLAMA FONKSİYONLARI ---
 def format_currency(value):
@@ -17,7 +62,8 @@ def format_quantity(value):
 
 # --- DİNAMİK KESİT ÇİZİM FONKSİYONU ---
 def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
-    fig, ax = plt.subplots(figsize=(6, 8), facecolor='white')
+    # Çizim arka planını yeni palete uyumlu hale getirdik
+    fig, ax = plt.subplots(figsize=(6, 8), facecolor='#E4E0E1')
     
     kum_h = 0.10 + dis_cap_m + 0.30 
     
@@ -33,55 +79,45 @@ def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
         dolgu_hatch = 'O'       
         dolgu_label = "Kırmataş Geri Dolgu"
         zemin_cizgi = 'black'
-        dolgu_text_color = '#333333'
+        dolgu_text_color = '#493628'
     else:
-        dolgu_color = '#deb887' 
+        dolgu_color = '#AB886D' # Yeni paletten toprak rengi
         dolgu_hatch = '+'       
         dolgu_label = "Kazıdan Çıkan Toprak\n(Geri Dolgu)"
-        zemin_cizgi = 'green'
-        dolgu_text_color = '#5c4033'
+        zemin_cizgi = '#493628'
+        dolgu_text_color = '#493628'
 
-    # Poligon Çizimleri
     dolgu_poly = patches.Polygon([
         (-kum_ust_genislik/2, kum_h), (kum_ust_genislik/2, kum_h),
         (ust_genislik/2, derinlik), (-ust_genislik/2, derinlik)
-    ], closed=True, facecolor=dolgu_color, edgecolor='black', hatch=dolgu_hatch, linewidth=1.5)
+    ], closed=True, facecolor=dolgu_color, edgecolor='#493628', hatch=dolgu_hatch, linewidth=1.5)
     ax.add_patch(dolgu_poly)
     
     yatak_poly = patches.Polygon([
         (-taban_genisligi/2, 0), (taban_genisligi/2, 0),
         (kum_ust_genislik/2, kum_h), (-kum_ust_genislik/2, kum_h)
-    ], closed=True, facecolor='#f4a460', edgecolor='black', hatch='.', linewidth=1.5)
+    ], closed=True, facecolor='#D6C0B3', edgecolor='#493628', hatch='.', linewidth=1.5)
     ax.add_patch(yatak_poly)
     
-    # Boru Çizimi
     pipe_center_y = 0.10 + (dis_cap_m / 2)
-    pipe_outer = patches.Circle((0, pipe_center_y), dis_cap_m/2, facecolor='#f0f0f0', edgecolor='black', linewidth=2)
-    pipe_inner = patches.Circle((0, pipe_center_y), (ic_cap_mm/2000), facecolor='white', edgecolor='black', linewidth=1)
+    pipe_outer = patches.Circle((0, pipe_center_y), dis_cap_m/2, facecolor='#f0f0f0', edgecolor='#493628', linewidth=2)
+    pipe_inner = patches.Circle((0, pipe_center_y), (ic_cap_mm/2000), facecolor='white', edgecolor='#493628', linewidth=1)
     ax.add_patch(pipe_outer)
     ax.add_patch(pipe_inner)
     
-    # Zemin Çizgisi
     ax.plot([-ust_genislik/2 - 0.5, ust_genislik/2 + 0.5], [derinlik, derinlik], color=zemin_cizgi, linewidth=3)
     
-    # Dış stroke efekti (Yazıların taramalar üzerinde okunabilmesi için)
-    beyaz_gölge = [pe.withStroke(linewidth=4, foreground='white')]
+    beyaz_gölge = [pe.withStroke(linewidth=4, foreground='#E4E0E1')]
     
-    # Metinler (Konumları ayrıştırıldı ve arkaplanlar kaldırılıp stroke eklendi)
     ax.text(0, derinlik + 0.15, zemin_tipi.upper(), ha='center', fontweight='bold', fontsize=12, color=zemin_cizgi)
+    ax.text(0, pipe_center_y, f"Ø{ic_cap_mm}", ha='center', va='center', fontweight='bold', fontsize=11, color='#493628', path_effects=beyaz_gölge)
     
-    # Boru çapı metni (Borunun tam ortasında)
-    ax.text(0, pipe_center_y, f"Ø{ic_cap_mm}", ha='center', va='center', fontweight='bold', fontsize=11, color='black', path_effects=beyaz_gölge)
-    
-    # Yataklama metni (Borunun üstü ile kum katmanının en üstü arasındaki 30cm'lik boşluğa ortalandı)
     yataklama_y_konumu = 0.10 + dis_cap_m + 0.15
-    ax.text(0, yataklama_y_konumu, "Yataklama\n& Gömlekleme", ha='center', va='center', fontsize=10, fontweight='bold', color='#8b4513', path_effects=beyaz_gölge)
+    ax.text(0, yataklama_y_konumu, "Yataklama\n& Gömlekleme", ha='center', va='center', fontsize=10, fontweight='bold', color='#493628', path_effects=beyaz_gölge)
     
-    # Dolgu metni (Dolgu katmanının tam ortası)
     dolgu_y_konumu = kum_h + (derinlik - kum_h)/2
     ax.text(0, dolgu_y_konumu, dolgu_label, ha='center', va='center', fontsize=11, fontweight='bold', color=dolgu_text_color, path_effects=beyaz_gölge)
     
-    # Ölçü Okları
     ax.annotate('', xy=(-ust_genislik/2 - 0.2, 0), xytext=(-ust_genislik/2 - 0.2, derinlik), arrowprops=dict(arrowstyle='<->', color='red', lw=1.5))
     ax.text(-ust_genislik/2 - 0.3, derinlik/2, f"HT = {derinlik:.2f} m", va='center', ha='right', color='red', rotation=90, fontweight='bold', path_effects=beyaz_gölge)
     
@@ -89,7 +125,7 @@ def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
     ax.text(0, -0.25, f"Taban = {taban_genisligi:.2f} m", ha='center', va='top', color='blue', fontweight='bold', path_effects=beyaz_gölge)
     
     if derinlik > 1.50:
-        ax.text(ust_genislik/2 + 0.1, derinlik/2, "1/3\nŞev", ha='left', va='center', color='black', fontweight='bold', path_effects=beyaz_gölge)
+        ax.text(ust_genislik/2 + 0.1, derinlik/2, "1/3\nŞev", ha='left', va='center', color='#493628', fontweight='bold', path_effects=beyaz_gölge)
     
     ax.set_aspect('equal')
     ax.axis('off')
@@ -97,9 +133,6 @@ def cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi):
     
     return fig
 
-# --- 1. ARAYÜZ VE BAŞLIK ---
-st.set_page_config(page_title="Altyapı Yaklaşık Maliyet Motoru", layout="wide", page_icon="👷")
-st.title("🚧Kanal Kazısı Yaklaşık Maliyet Hesaplama 👷")
 
 file_path = "Altyapı Birim Fiyatlar_2.xlsx"
 
@@ -112,7 +145,6 @@ try:
     
     # --- 2. KULLANICI GİRİŞ PARAMETRELERİ ---
     st.sidebar.header("1. Metraj Parametreleri")
-    st.sidebar.info("Dönem: **Eylül 2025**")
     
     uzunluk = st.sidebar.number_input("Hat Uzunluğu (m)", min_value=0.0, value=100.0)
     derinlik = st.sidebar.number_input("Ortalama Kazı Derinliği (m)", min_value=0.0, value=2.0)
@@ -193,28 +225,41 @@ try:
             fiyat_SNBF_14 = A_katsayisi * K_katsayisi * ((0.0007 * mesafe_kirmatas) + 0.01) * kirmata_yogunluk + 29.28 if mesafe_kirmatas > 0 else 0
 
             hesap_kalemleri = [
-                {"İşlem": "Kazı", "Poz": kazi_pozu, "Miktar": kazi_hacmi, "Birim": "m³"},
-                {"İşlem": f"Boru Döşeme (Ø{ic_cap_mm} mm)", "Poz": boru_pozu, "Miktar": uzunluk, "Birim": "m"},
-                {"İşlem": "Yataklama (Kırmataş/Kum)", "Poz": kum_pozu, "Miktar": kum_dolgu_hacmi_net, "Birim": "m³"},
-                {"İşlem": "Geri Dolgu", "Poz": dolgu_pozu, "Miktar": tuvenan_dolgu_hacmi, "Birim": "m³"}
+                {"İşlem": "Kazı", "Poz": kazi_pozu, "Miktar (Sayısal)": kazi_hacmi, "Birim": "m³"},
+                {"İşlem": f"Boru Döşeme (Ø{ic_cap_mm} mm)", "Poz": boru_pozu, "Miktar (Sayısal)": uzunluk, "Birim": "m"},
+                {"İşlem": "Yataklama (Kırmataş/Kum)", "Poz": kum_pozu, "Miktar (Sayısal)": kum_dolgu_hacmi_net, "Birim": "m³"},
+                {"İşlem": "Geri Dolgu", "Poz": dolgu_pozu, "Miktar (Sayısal)": tuvenan_dolgu_hacmi, "Birim": "m³"}
             ]
             if hasir_celik_miktari_ton > 0:
-                hesap_kalemleri.append({"İşlem": "Boru İçi Hasır Çelik Donatı", "Poz": hasir_celik_pozu, "Miktar": hasir_celik_miktari_ton, "Birim": "ton"})
+                hesap_kalemleri.append({"İşlem": "Boru İçi Hasır Çelik Donatı", "Poz": hasir_celik_pozu, "Miktar (Sayısal)": hasir_celik_miktari_ton, "Birim": "ton"})
 
-            maliyet_tablosu = []
+            maliyet_tablosu_gorsel = []
+            maliyet_tablosu_excel = [] # Excel'de sayısal işlem yapılabilmesi için formatlanmamış liste
             
             def satir_hesapla(islem, poz, miktar, birim, karsiz_fiyat):
                 if miktar > 0 and karsiz_fiyat > 0:
                     karli_fiyat = karsiz_fiyat * k_carpan
                     karsiz_tutar = miktar * karsiz_fiyat
                     karli_tutar = miktar * karli_fiyat
-                    maliyet_tablosu.append({
+                    
+                    # Arayüz İçin (Formatlı)
+                    maliyet_tablosu_gorsel.append({
                         "İşlem Adı": islem, "Poz No": poz, 
                         "Miktar": format_quantity(miktar), "Birim": birim,
                         "Kârsız Birim Fiyat": format_currency(karsiz_fiyat), 
                         "Kârlı Birim Fiyat": format_currency(karli_fiyat), 
                         "Kârsız Tutar": format_currency(karsiz_tutar),
                         "Kârlı Tutar": format_currency(karli_tutar)
+                    })
+                    
+                    # Excel İçin (Sayısal)
+                    maliyet_tablosu_excel.append({
+                        "İşlem Adı": islem, "Poz No": poz, 
+                        "Miktar": miktar, "Birim": birim,
+                        "Kârsız Birim Fiyat (TL)": karsiz_fiyat, 
+                        "Kârlı Birim Fiyat (TL)": karli_fiyat, 
+                        "Kârsız Tutar (TL)": karsiz_tutar,
+                        "Kârlı Tutar (TL)": karli_tutar
                     })
                     return karsiz_tutar, karli_tutar
                 return 0.0, 0.0
@@ -224,7 +269,7 @@ try:
 
             for kalem in hesap_kalemleri:
                 karsiz_bf = df_fiyatlar[df_fiyatlar['POZ NO'].astype(str) == kalem["Poz"]].iloc[0][secilen_donem]
-                karsiz_t, karli_t = satir_hesapla(kalem["İşlem"], kalem["Poz"], kalem["Miktar"], kalem["Birim"], karsiz_bf)
+                karsiz_t, karli_t = satir_hesapla(kalem["İşlem"], kalem["Poz"], kalem["Miktar (Sayısal)"], kalem["Birim"], karsiz_bf)
                 genel_toplam_karsiz += karsiz_t
                 genel_toplam_karli += karli_t
                 
@@ -242,7 +287,6 @@ try:
 
             # --- 5. SONUÇ EKRANI VE ÇİZİM ---
             st.divider()
-            st.subheader(f"📊 Eylül 2025 Dönemi Yaklaşık Maliyet Raporu")
             
             donati_bilgisi = f" | Hasır Çelik: {format_quantity(hasir_celik_miktari_ton)} Ton" if hasir_celik_miktari_ton > 0 else " | Hasır Çelik: Yok"
             st.info(f"📐 **Metraj Detayları:** İç Çap: Ø{ic_cap_mm} mm | Dış Çap: Ø{dis_cap_mm} mm | Boru Ağırlığı: {format_quantity(nakliye_boru_ton)} Ton{donati_bilgisi}")
@@ -250,12 +294,32 @@ try:
             col1, col2 = st.columns([7, 4])
             
             with col1:
-                df_sonuc = pd.DataFrame(maliyet_tablosu)
-                df_sonuc.index = df_sonuc.index + 1 
-                st.dataframe(df_sonuc, use_container_width=True)
+                df_sonuc_gorsel = pd.DataFrame(maliyet_tablosu_gorsel)
+                df_sonuc_gorsel.index = df_sonuc_gorsel.index + 1 
+                st.dataframe(df_sonuc_gorsel, use_container_width=True)
                 
-                st.warning(f"### 💰 KÂRSIZ GENEL TOPLAM: {format_currency(genel_toplam_karsiz)}")
-                st.success(f"### 📈 KÂRLI GENEL TOPLAM (%{kar_orani} Kâr): {format_currency(genel_toplam_karli)}")
+                # Excel İndirme Butonu (HTML ve Base64 Kullanarak)
+                df_sonuc_excel = pd.DataFrame(maliyet_tablosu_excel)
+                df_sonuc_excel.index = df_sonuc_excel.index + 1
+                
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df_sonuc_excel.to_excel(writer, sheet_name='Yaklaşık Maliyet Raporu')
+                
+                b64 = base64.b64encode(buffer.getvalue()).decode()
+                
+                excel_href = f'''
+                <a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" 
+                   download="Altyapi_Yaklasik_Maliyet_Raporu.xlsx" 
+                   style="display: inline-block; background-color: #217346; color: white; padding: 10px 20px; 
+                          text-decoration: none; border-radius: 5px; font-weight: bold; margin-bottom: 20px;">
+                   📗 Excel Olarak İndir
+                </a>
+                '''
+                st.markdown(excel_href, unsafe_allow_html=True)
+                
+                st.write(f"**💰 KÂRSIZ GENEL TOPLAM:** {format_currency(genel_toplam_karsiz)}")
+                st.write(f"**📈 KÂRLI GENEL TOPLAM (%{kar_orani}):** {format_currency(genel_toplam_karli)}")
                 
             with col2:
                 fig = cizim_olustur(ic_cap_mm, dis_cap_m, derinlik, taban_genisligi, zemin_tipi)
