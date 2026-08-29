@@ -11,7 +11,7 @@ from config import (
     VARSAYILAN_KIRMATAS_YOGUNLUK,
     VARSAYILAN_BETON_YOGUNLUK,
 )
-from data import fiyat_listesini_yukle, birim_fiyat_bul
+from data import fiyat_listesini_yukle, birim_fiyat_bul, donem_etiketlerini_olustur
 from validation import girdileri_dogrula, gerekli_pozlari_kontrol_et
 from calculations import (
     boru_pozlarini_belirle,
@@ -53,14 +53,13 @@ st.markdown(
 
 st.title("Kanal Kazısı Yaklaşık Maliyet Hesaplama")
 
-with st.expander("📁 Kendi birim fiyat listeni kullan (opsiyonel)"):
-    st.caption(
-        "Varsayılan olarak repo içindeki güncel birim fiyat listesi kullanılır. "
-        "Aynı sütun yapısına (SIRA NO, POZ NO, İŞ KALEMİNİN ADI VE KISA AÇIKLAMASI, "
-        "BİRİMİ + en az bir dönemsel fiyat sütunu) sahip kendi Excel dosyanı yükleyerek "
-        "farklı bir fiyat listesiyle hesaplama yapabilirsin."
-    )
-    yuklenen_dosya = st.file_uploader("Excel dosyası (.xlsx)", type=["xlsx"])
+
+EXCEL_IKON_SVG = (
+    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+    '<rect x="2" y="2" width="20" height="20" rx="3" fill="#1B6E43"/>'
+    '<path d="M6.5 6.5l4 5.5-4 5.5h2.4l2.8-3.9 2.8 3.9h2.4l-4-5.5 4-5.5h-2.4l-2.8 3.9-2.8-3.9z" fill="#FFFFFF"/>'
+    "</svg>"
+)
 
 
 def format_currency(value):
@@ -75,19 +74,25 @@ def format_quantity(value):
 
 
 try:
-    aktif_fiyat_kaynagi = yuklenen_dosya if yuklenen_dosya is not None else FIYAT_DOSYASI
-    aktif_fiyat_kaynagi_adi = yuklenen_dosya.name if yuklenen_dosya is not None else FIYAT_DOSYASI
-    df_fiyatlar, donem_sutunlari = fiyat_listesini_yukle(aktif_fiyat_kaynagi)
-    secilen_donem = donem_sutunlari[0]
+    df_fiyatlar, donem_sutunlari = fiyat_listesini_yukle(FIYAT_DOSYASI)
+    donem_etiketleri = donem_etiketlerini_olustur(donem_sutunlari)
     poz_listesi = df_fiyatlar['POZ NO'].astype(str).tolist()
 
     st.sidebar.header("1. Metraj Parametreleri")
+
+    secilen_etiket = st.sidebar.selectbox(
+        "Birim Fiyat Dönemi",
+        options=[etiket for etiket, _ in donem_etiketleri],
+        index=len(donem_etiketleri) - 1,
+        help="Hesaplamada kullanılacak aylık birim fiyat dönemi.",
+    )
+    secilen_donem = dict(donem_etiketleri)[secilen_etiket]
 
     uzunluk = st.sidebar.number_input("Hat Uzunluğu (m)", min_value=0.0, value=100.0, step=1.0)
 
     # max_value kaldırıldı (Önbellek çökmesini engellemek için)
     derinlik = st.sidebar.number_input("Ortalama Kazı Derinliği (m)", min_value=0.0, value=2.0, step=1.0)
-    st.sidebar.caption("⚠️ *10m üzeri kazılar özel iksa/güvenlik projesi gerektirir.*")
+    st.sidebar.caption("⚠️ *8m ve üzeri kazılar için bu modül üzerinden hesap yapılamaz; özel iksa/güvenlik projesi gerektirir.*")
 
     zemin_tipi = st.sidebar.selectbox("Zemin Tipi", ["Yeşil Alan", "Sert Zemin (Asfalt/Beton)"])
     ic_cap_mm = st.sidebar.selectbox("Boru İç Çapı (mm)", BORU_CAPLARI)
@@ -133,6 +138,7 @@ try:
             uzunluk, derinlik, mesafe_kazi, mesafe_boru, mesafe_kirmatas, kar_orani
         )
         if dogrulama_hatalari:
+            st.session_state.pop("sonuc", None)
             for hata in dogrulama_hatalari:
                 st.error(f"⚠️ {hata}")
         else:
@@ -143,7 +149,8 @@ try:
             eksik_pozlar = gerekli_pozlari_kontrol_et(gerekli_pozlar, poz_listesi)
 
             if eksik_pozlar:
-                st.error(f"⚠️ Hata: '{aktif_fiyat_kaynagi_adi}' dosyasında şu otomatik pozlar bulunamadı: {', '.join(eksik_pozlar)}")
+                st.session_state.pop("sonuc", None)
+                st.error(f"⚠️ Hata: '{FIYAT_DOSYASI}' dosyasında şu otomatik pozlar bulunamadı: {', '.join(eksik_pozlar)}")
             else:
                 with st.spinner("Hesaplanıyor..."):
                     metraj = metraj_hesapla(ic_cap_mm, derinlik, uzunluk, pozlar["dolgu_pozu"])
@@ -173,8 +180,7 @@ try:
                         "uzunluk": uzunluk,
                         "zemin_tipi": zemin_tipi,
                         "kar_orani": kar_orani,
-                        "secilen_donem": secilen_donem,
-                        "fiyat_kaynagi_adi": aktif_fiyat_kaynagi_adi,
+                        "secilen_etiket": secilen_etiket,
                     }
 
     if "sonuc" in st.session_state:
@@ -189,38 +195,31 @@ try:
         uzunluk_sonuc = s["uzunluk"]
         zemin_tipi_sonuc = s["zemin_tipi"]
         kar_orani_sonuc = s["kar_orani"]
-        secilen_donem_sonuc = s["secilen_donem"]
-        fiyat_kaynagi_adi_sonuc = s["fiyat_kaynagi_adi"]
+        secilen_etiket_sonuc = s["secilen_etiket"]
 
         maliyet_tablosu_gorsel = [
             {
-                "İşlem Adı": r["İşlem Adı"], "Poz No": r["Poz No"],
+                "Poz No": r["Poz No"], "İşlem Adı": r["İşlem Adı"],
                 "Miktar": format_quantity(r["Miktar"]), "Birim": r["Birim"],
-                "Kârsız Birim Fiyat": format_currency(r["karsiz_fiyat"]),
                 "Kârlı Birim Fiyat": format_currency(r["karli_fiyat"]),
-                "Kârsız Tutar": format_currency(r["karsiz_tutar"]),
                 "Kârlı Tutar": format_currency(r["karli_tutar"]),
             }
             for r in satirlar
         ]
         maliyet_tablosu_excel = [
             {
-                "İşlem Adı": r["İşlem Adı"], "Poz No": r["Poz No"],
+                "Poz No": r["Poz No"], "İşlem Adı": r["İşlem Adı"],
                 "Miktar": r["Miktar"], "Birim": r["Birim"],
-                "Kârsız Birim Fiyat (TL)": r["karsiz_fiyat"],
                 "Kârlı Birim Fiyat (TL)": r["karli_fiyat"],
-                "Kârsız Tutar (TL)": r["karsiz_tutar"],
                 "Kârlı Tutar (TL)": r["karli_tutar"],
             }
             for r in satirlar
         ]
 
         maliyet_tablosu_gorsel.append({
-            "İşlem Adı": "TOPLAM", "Poz No": "",
+            "Poz No": "", "İşlem Adı": "TOPLAM",
             "Miktar": "", "Birim": "",
-            "Kârsız Birim Fiyat": "",
             "Kârlı Birim Fiyat": "",
-            "Kârsız Tutar": format_currency(genel_toplam_karsiz),
             "Kârlı Tutar": format_currency(genel_toplam_karli)
         })
 
@@ -233,11 +232,11 @@ try:
             f"📐 **Metraj Detayları:** İç Çap: Ø{ic_cap_mm_sonuc} mm | Dış Çap: Ø{metraj['dis_cap_mm']} mm | "
             f"Boru Ağırlığı: {format_quantity(nakliye_fiyatlari['nakliye_boru_ton'])} Ton{donati_bilgisi}"
         )
-        st.caption(f"💲 Kullanılan birim fiyat dönemi: **{secilen_donem_sonuc}** — kaynak: `{fiyat_kaynagi_adi_sonuc}`")
+        st.caption(f"💲 Kullanılan birim fiyat dönemi: **{secilen_etiket_sonuc}** — kaynak: `{FIYAT_DOSYASI}`")
 
-        tab_tablo, tab_cizim = st.tabs(["📋 Maliyet Tablosu", "📐 Kesit Çizimi"])
+        col1, col2 = st.columns([7, 4])
 
-        with tab_tablo:
+        with col1:
             df_sonuc_gorsel = pd.DataFrame(maliyet_tablosu_gorsel)
             df_sonuc_gorsel.index = df_sonuc_gorsel.index + 1
 
@@ -251,7 +250,7 @@ try:
             ).set_properties(
                 subset=['Poz No', 'Birim'], **{'text-align': 'center'}
             ).set_properties(
-                subset=['Miktar', 'Kârsız Birim Fiyat', 'Kârlı Birim Fiyat', 'Kârsız Tutar', 'Kârlı Tutar'], **{'text-align': 'right'}
+                subset=['Miktar', 'Kârlı Birim Fiyat', 'Kârlı Tutar'], **{'text-align': 'right'}
             ).apply(style_last_row, axis=1)
 
             styled_df = styled_df.set_table_styles([
@@ -268,41 +267,33 @@ try:
                 df_sonuc_excel.to_excel(writer, sheet_name='Yaklaşık Maliyet Raporu')
             b64 = base64.b64encode(buffer.getvalue()).decode()
 
-            excel_href = f'''
-            <div style="margin-top: 5px;">
-                <a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}"
-                   download="Altyapi_Yaklasik_Maliyet_Raporu.xlsx"
-                   style="display: inline-block; background-color: #217346; color: white; padding: 10px 20px;
-                          text-decoration: none; border-radius: 5px; font-weight: bold;">
-                   📗 Excel Olarak İndir
-                </a>
-            </div>
-            '''
+            excel_href = (
+                '<div style="margin-top: 5px;">'
+                f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" '
+                'download="Altyapi_Yaklasik_Maliyet_Raporu.xlsx" '
+                'style="display: inline-flex; align-items: center; justify-content: center; '
+                'background-color: #217346; padding: 10px; border-radius: 5px; width: 42px; height: 42px;">'
+                f'{EXCEL_IKON_SVG}'
+                '</a>'
+                '</div>'
+            )
             st.markdown(excel_href, unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
 
             kar_farki = genel_toplam_karli - genel_toplam_karsiz
-            metrik_col1, metrik_col2 = st.columns(2)
-            with metrik_col1:
-                st.metric(
-                    f"📈 Genel Toplam (%{format_quantity(kar_orani_sonuc)} kârlı)",
-                    format_currency(genel_toplam_karli),
-                    delta=f"+{format_currency(kar_farki)} kâr",
-                )
-            with metrik_col2:
-                if uzunluk_sonuc > 0:
-                    metretul_maliyeti = genel_toplam_karli / uzunluk_sonuc
-                    st.metric("📏 Metretül Maliyeti", f"{format_currency(metretul_maliyeti)}/m")
-            st.caption(f"Kârsız (maliyet) toplam: {format_currency(genel_toplam_karsiz)}")
-
-        with tab_cizim:
-            fig = cizim_olustur(ic_cap_mm_sonuc, metraj["dis_cap_m"], derinlik_sonuc, metraj["taban_genisligi"], zemin_tipi_sonuc)
-            st.pyplot(fig, use_container_width=False)
-            st.caption(
-                f"Kanal kesiti şeması: Ø{ic_cap_mm_sonuc} mm boru, {derinlik_sonuc:.2f} m kazı derinliği, "
-                f"{zemin_tipi_sonuc.lower()} zemin tipi için oluşturulmuştur."
+            st.metric(
+                f"📈 Genel Toplam (%{format_quantity(kar_orani_sonuc)} kârlı)",
+                format_currency(genel_toplam_karli),
+                delta=f"+{format_currency(kar_farki)} kâr",
             )
+            if uzunluk_sonuc > 0:
+                metretul_maliyeti = genel_toplam_karli / uzunluk_sonuc
+                st.metric("📏 Metretül Maliyeti", f"{format_currency(metretul_maliyeti)}/m")
+
+        with col2:
+            fig = cizim_olustur(ic_cap_mm_sonuc, metraj["dis_cap_m"], derinlik_sonuc, metraj["taban_genisligi"], zemin_tipi_sonuc)
+            st.pyplot(fig)
 
 except FileNotFoundError:
     st.error(f"⚠️ HATA: '{FIYAT_DOSYASI}' dosyası bulunamadı. Lütfen Excel dosyasını GitHub deponuza yüklediğinizden emin olun.")
