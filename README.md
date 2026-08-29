@@ -39,8 +39,11 @@ sütunları içermelidir:
 - `SIRA NO`, `POZ NO`, `İŞ KALEMİNİN ADI VE KISA AÇIKLAMASI`, `BİRİMİ`
 - En az bir dönemsel birim fiyat sütunu (örn. bir tarih/dönem adı)
 
-Uygulama, dosyadaki ilk dönem sütununu kullanır. Hesaplamada kullanılan POZ numaraları kod
-içinde (`app.py` başındaki SABİTLER bloğu) tanımlıdır.
+Uygulama, dosyadaki ilk dönem sütununu kullanır. Hesaplamada kullanılan POZ numaraları
+`config.py` içinde tanımlıdır.
+
+Kendi birim fiyat listeni kullanmak istersen, sayfadaki "Kendi birim fiyat listeni kullan
+(opsiyonel)" bölümünden aynı sütun yapısına sahip bir `.xlsx` dosyası yükleyebilirsin.
 
 ## Metodoloji Özeti
 
