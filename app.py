@@ -3,7 +3,7 @@ import pandas as pd
 import io
 import base64
 
-from config import FIYAT_DOSYASI, BORU_CAPLARI
+from config import FIYAT_DOSYASI, BORU_CAPLARI, EXCEL_IKON_DOSYASI
 from data import (
     fiyat_listesini_yukle,
     birim_fiyat_bul,
@@ -53,12 +53,10 @@ st.markdown(
 st.title("Kanal Kazısı Yaklaşık Maliyet Hesaplama")
 
 
-EXCEL_IKON_SVG = (
-    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
-    '<rect x="2" y="2" width="20" height="20" rx="3" fill="#1B6E43"/>'
-    '<path d="M6.5 6.5l4 5.5-4 5.5h2.4l2.8-3.9 2.8 3.9h2.4l-4-5.5 4-5.5h-2.4l-2.8 3.9-2.8-3.9z" fill="#FFFFFF"/>'
-    "</svg>"
-)
+@st.cache_data
+def excel_ikon_base64_yukle(dosya_yolu):
+    with open(dosya_yolu, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
 
 def format_currency(value):
@@ -242,13 +240,15 @@ try:
                 df_sonuc_excel.to_excel(writer, sheet_name='Yaklaşık Maliyet Raporu')
             b64 = base64.b64encode(buffer.getvalue()).decode()
 
+            excel_ikon_b64 = excel_ikon_base64_yukle(EXCEL_IKON_DOSYASI)
             excel_href = (
                 '<div style="margin-top: 5px;">'
                 f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" '
                 'download="Altyapi_Yaklasik_Maliyet_Raporu.xlsx" '
+                'title="Excel olarak indir" '
                 'style="display: inline-flex; align-items: center; justify-content: center; '
-                'background-color: #217346; padding: 10px; border-radius: 5px; width: 42px; height: 42px;">'
-                f'{EXCEL_IKON_SVG}'
+                'padding: 4px; border-radius: 5px; width: 42px; height: 42px;">'
+                f'<img src="data:image/svg+xml;base64,{excel_ikon_b64}" width="34" height="34" alt="Excel olarak indir" />'
                 '</a>'
                 '</div>'
             )

@@ -1,6 +1,7 @@
 """Sabitler ve konfigürasyon: poz numaraları, boru katalog verileri, nakliye formülü satır anahtarları."""
 
 FIYAT_DOSYASI = "Altyapı Birim Fiyatlar.xlsx"
+EXCEL_IKON_DOSYASI = "icons8-microsoft-excel-2025-144.svg"
 FIYAT_SAYFASI = "Sayfa1"
 
 SABIT_SUTUNLAR = ['SIRA NO', 'POZ NO', 'İŞ KALEMİNİN ADI VE KISA AÇIKLAMASI', 'BİRİMİ']
