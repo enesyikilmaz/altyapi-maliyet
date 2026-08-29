@@ -34,11 +34,13 @@ st.set_page_config(
 # Temel renk paleti .streamlit/config.toml [theme] üzerinden yönetiliyor.
 # Burada sadece Streamlit'in native tema desteğinin karşılamadığı ince ayarlar var
 # (buton hover rengi, alert kutusu şeffaflığı).
+# Hover rengi #8A6B52, beyaz metinle WCAG AA kontrastını (>=4.5:1) sağlamak için
+# orijinal #AB886D'den koyulaştırıldı.
 st.markdown(
     """
     <style>
     div[data-testid="stButton"] > button:hover {
-        background-color: #AB886D !important;
+        background-color: #8A6B52 !important;
         color: #FFFFFF !important;
     }
     .stAlert {
@@ -50,6 +52,15 @@ st.markdown(
 )
 
 st.title("Kanal Kazısı Yaklaşık Maliyet Hesaplama")
+
+with st.expander("📁 Kendi birim fiyat listeni kullan (opsiyonel)"):
+    st.caption(
+        "Varsayılan olarak repo içindeki güncel birim fiyat listesi kullanılır. "
+        "Aynı sütun yapısına (SIRA NO, POZ NO, İŞ KALEMİNİN ADI VE KISA AÇIKLAMASI, "
+        "BİRİMİ + en az bir dönemsel fiyat sütunu) sahip kendi Excel dosyanı yükleyerek "
+        "farklı bir fiyat listesiyle hesaplama yapabilirsin."
+    )
+    yuklenen_dosya = st.file_uploader("Excel dosyası (.xlsx)", type=["xlsx"])
 
 
 def format_currency(value):
@@ -64,7 +75,9 @@ def format_quantity(value):
 
 
 try:
-    df_fiyatlar, donem_sutunlari = fiyat_listesini_yukle(FIYAT_DOSYASI)
+    aktif_fiyat_kaynagi = yuklenen_dosya if yuklenen_dosya is not None else FIYAT_DOSYASI
+    aktif_fiyat_kaynagi_adi = yuklenen_dosya.name if yuklenen_dosya is not None else FIYAT_DOSYASI
+    df_fiyatlar, donem_sutunlari = fiyat_listesini_yukle(aktif_fiyat_kaynagi)
     secilen_donem = donem_sutunlari[0]
     poz_listesi = df_fiyatlar['POZ NO'].astype(str).tolist()
 
@@ -130,7 +143,7 @@ try:
             eksik_pozlar = gerekli_pozlari_kontrol_et(gerekli_pozlar, poz_listesi)
 
             if eksik_pozlar:
-                st.error(f"⚠️ Hata: '{FIYAT_DOSYASI}' dosyasında şu otomatik pozlar bulunamadı: {', '.join(eksik_pozlar)}")
+                st.error(f"⚠️ Hata: '{aktif_fiyat_kaynagi_adi}' dosyasında şu otomatik pozlar bulunamadı: {', '.join(eksik_pozlar)}")
             else:
                 with st.spinner("Hesaplanıyor..."):
                     metraj = metraj_hesapla(ic_cap_mm, derinlik, uzunluk, pozlar["dolgu_pozu"])
@@ -161,6 +174,7 @@ try:
                         "zemin_tipi": zemin_tipi,
                         "kar_orani": kar_orani,
                         "secilen_donem": secilen_donem,
+                        "fiyat_kaynagi_adi": aktif_fiyat_kaynagi_adi,
                     }
 
     if "sonuc" in st.session_state:
@@ -176,6 +190,7 @@ try:
         zemin_tipi_sonuc = s["zemin_tipi"]
         kar_orani_sonuc = s["kar_orani"]
         secilen_donem_sonuc = s["secilen_donem"]
+        fiyat_kaynagi_adi_sonuc = s["fiyat_kaynagi_adi"]
 
         maliyet_tablosu_gorsel = [
             {
@@ -218,11 +233,11 @@ try:
             f"📐 **Metraj Detayları:** İç Çap: Ø{ic_cap_mm_sonuc} mm | Dış Çap: Ø{metraj['dis_cap_mm']} mm | "
             f"Boru Ağırlığı: {format_quantity(nakliye_fiyatlari['nakliye_boru_ton'])} Ton{donati_bilgisi}"
         )
-        st.caption(f"💲 Kullanılan birim fiyat dönemi: **{secilen_donem_sonuc}** — kaynak: `{FIYAT_DOSYASI}`")
+        st.caption(f"💲 Kullanılan birim fiyat dönemi: **{secilen_donem_sonuc}** — kaynak: `{fiyat_kaynagi_adi_sonuc}`")
 
-        col1, col2 = st.columns([7, 4])
+        tab_tablo, tab_cizim = st.tabs(["📋 Maliyet Tablosu", "📐 Kesit Çizimi"])
 
-        with col1:
+        with tab_tablo:
             df_sonuc_gorsel = pd.DataFrame(maliyet_tablosu_gorsel)
             df_sonuc_gorsel.index = df_sonuc_gorsel.index + 1
 
@@ -281,9 +296,13 @@ try:
                     st.metric("📏 Metretül Maliyeti", f"{format_currency(metretul_maliyeti)}/m")
             st.caption(f"Kârsız (maliyet) toplam: {format_currency(genel_toplam_karsiz)}")
 
-        with col2:
+        with tab_cizim:
             fig = cizim_olustur(ic_cap_mm_sonuc, metraj["dis_cap_m"], derinlik_sonuc, metraj["taban_genisligi"], zemin_tipi_sonuc)
-            st.pyplot(fig)
+            st.pyplot(fig, use_container_width=False)
+            st.caption(
+                f"Kanal kesiti şeması: Ø{ic_cap_mm_sonuc} mm boru, {derinlik_sonuc:.2f} m kazı derinliği, "
+                f"{zemin_tipi_sonuc.lower()} zemin tipi için oluşturulmuştur."
+            )
 
 except FileNotFoundError:
     st.error(f"⚠️ HATA: '{FIYAT_DOSYASI}' dosyası bulunamadı. Lütfen Excel dosyasını GitHub deponuza yüklediğinizden emin olun.")
