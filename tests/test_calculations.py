@@ -108,14 +108,14 @@ class TestNakliyeFiyatlariniHesapla:
         )
         assert sonuc["nakliye_boru_ton"] == 5.0 * 2.40
 
-    def test_boru_fiyati_g_beton_kullanir(self):
-        # F = A x K x (0.0007xM+0.01) x G_beton
+    def test_boru_fiyati_g_1_sabit_kullanir(self):
+        # F = A x K x (0.0007xM+0.01) x G, miktar ton olduğundan G=1 sabit
         sonuc = nakliye_fiyatlarini_hesapla(
             mesafe_kazi=0, mesafe_boru=12, mesafe_kirmatas=0,
             nakliye_katsayilari=ORNEK_NAKLIYE_KATSAYILARI,
             boru_malzeme_hacmi=5.0,
         )
-        beklenen = 1.75 * 2048.01 * ((0.0007 * 12) + 0.01) * 2.40
+        beklenen = 1.75 * 2048.01 * ((0.0007 * 12) + 0.01) * 1.0
         assert math.isclose(sonuc["fiyat_boru"], beklenen)
 
     def test_kirmatas_fiyati_yukleme_bosaltma_ekler(self):
@@ -127,13 +127,13 @@ class TestNakliyeFiyatlariniHesapla:
         beklenen = 1.75 * 2048.01 * ((0.0007 * 14) + 0.01) * 1.60 + 29.28
         assert math.isclose(sonuc["fiyat_kirmatas"], beklenen)
 
-    def test_kazi_fiyati_dokum_harc_ekler(self):
+    def test_kazi_fiyati_dokum_harc_ekler_yukleme_bosaltma_eklemez(self):
         sonuc = nakliye_fiyatlarini_hesapla(
             mesafe_kazi=12, mesafe_boru=0, mesafe_kirmatas=0,
             nakliye_katsayilari=ORNEK_NAKLIYE_KATSAYILARI,
             boru_malzeme_hacmi=5.0,
         )
-        beklenen = 1.25 * 2048.01 * ((0.00046 * math.sqrt(12 * 1000)) - 0.0046) + 29.28 + 80.0
+        beklenen = 1.25 * 2048.01 * ((0.0014 * 12) + 0.02) - (0.00325 * 2048.01) + 80.0
         assert math.isclose(sonuc["fiyat_kazi"], beklenen)
 
 

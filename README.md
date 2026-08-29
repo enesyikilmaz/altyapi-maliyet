@@ -60,11 +60,12 @@ belgeler; uygulama bu sayfayı okumaz, sadece referans amaçlıdır. Formülün 
 ## Metodoloji Özeti
 
 - Kazı kesiti, 1,50 m'yi aşan derinliklerde 1/3 şevli trapez kesit olarak hesaplanır.
+- Kazı hafriyat nakliyesi: `F = 1,25 × K × (0,0014×M + 0,02) − 0,00325×K` (KGM 14.210 poz
+  notu, uzun mesafe formülü; M: taşıma mesafesi km, K: taşıt katsayısı). Üzerine seçilen ayın
+  döküm sahası harç bedeli eklenir; yükleme/boşaltma bedeli eklenmez.
 - Boru ve kırmataş/kum nakliye birim fiyatları: `F = A × K × (0,0007×M + 0,01) × G` (M: taşıma
-  mesafesi km, G: ilgili malzemenin yoğunluğu). Kırmataş nakliyesine ayrıca yükleme/boşaltma
-  bedeli eklenir.
-- Kazı nakliyesi, aynı formül ailesinin farklı bir katsayı setiyle hesaplanan türevidir; üzerine
-  seçilen ayın döküm sahası harç bedeli eklenir.
+  mesafesi km, G: ilgili malzemenin yoğunluğu). Boru nakliyesinde miktar ton cinsinden
+  alındığından G=1 sabittir; kırmataş nakliyesine ayrıca yükleme/boşaltma bedeli eklenir.
 - A, K, G ve ek bedeller seçilen birim fiyat dönemine göre Excel'den otomatik alınır; kullanıcı
   tarafından değiştirilemez.
 - Boru et kalınlığı, iç çapa göre standart tablo değerlerinden alınır.
