@@ -69,12 +69,21 @@ class TestMetrajHesapla:
         assert metraj["nakliye_kirmatas_miktari"] == metraj["kum_dolgu_hacmi_net"] + metraj["tuvenan_dolgu_hacmi"]
 
 
+ORNEK_NAKLIYE_KATSAYILARI = {
+    "A": 1.75,
+    "K": 2048.01,
+    "G_BETON": 2.40,
+    "G_KIRMATAS": 1.60,
+    "KAZI_DOKUM_HARC": 80.0,
+    "YUKLEME_BOSALTMA": 29.28,
+}
+
+
 class TestNakliyeFiyatlariniHesapla:
     def test_sifir_mesafe_sifir_fiyat(self):
         sonuc = nakliye_fiyatlarini_hesapla(
             mesafe_kazi=0, mesafe_boru=0, mesafe_kirmatas=0,
-            K_katsayisi=2048.01, A_katsayisi=1.75,
-            kirmata_yogunluk=1.60, beton_yogunluk=2.40,
+            nakliye_katsayilari=ORNEK_NAKLIYE_KATSAYILARI,
             boru_malzeme_hacmi=5.0,
         )
         assert sonuc["fiyat_kazi"] == 0
@@ -84,8 +93,7 @@ class TestNakliyeFiyatlariniHesapla:
     def test_pozitif_mesafe_pozitif_fiyat(self):
         sonuc = nakliye_fiyatlarini_hesapla(
             mesafe_kazi=12, mesafe_boru=12, mesafe_kirmatas=14,
-            K_katsayisi=2048.01, A_katsayisi=1.75,
-            kirmata_yogunluk=1.60, beton_yogunluk=2.40,
+            nakliye_katsayilari=ORNEK_NAKLIYE_KATSAYILARI,
             boru_malzeme_hacmi=5.0,
         )
         assert sonuc["fiyat_kazi"] > 0
@@ -95,11 +103,38 @@ class TestNakliyeFiyatlariniHesapla:
     def test_boru_tonaji_hacim_carpi_yogunluk(self):
         sonuc = nakliye_fiyatlarini_hesapla(
             mesafe_kazi=0, mesafe_boru=0, mesafe_kirmatas=0,
-            K_katsayisi=2048.01, A_katsayisi=1.75,
-            kirmata_yogunluk=1.60, beton_yogunluk=2.40,
+            nakliye_katsayilari=ORNEK_NAKLIYE_KATSAYILARI,
             boru_malzeme_hacmi=5.0,
         )
         assert sonuc["nakliye_boru_ton"] == 5.0 * 2.40
+
+    def test_boru_fiyati_g_beton_kullanir(self):
+        # F = A x K x (0.0007xM+0.01) x G_beton
+        sonuc = nakliye_fiyatlarini_hesapla(
+            mesafe_kazi=0, mesafe_boru=12, mesafe_kirmatas=0,
+            nakliye_katsayilari=ORNEK_NAKLIYE_KATSAYILARI,
+            boru_malzeme_hacmi=5.0,
+        )
+        beklenen = 1.75 * 2048.01 * ((0.0007 * 12) + 0.01) * 2.40
+        assert math.isclose(sonuc["fiyat_boru"], beklenen)
+
+    def test_kirmatas_fiyati_yukleme_bosaltma_ekler(self):
+        sonuc = nakliye_fiyatlarini_hesapla(
+            mesafe_kazi=0, mesafe_boru=0, mesafe_kirmatas=14,
+            nakliye_katsayilari=ORNEK_NAKLIYE_KATSAYILARI,
+            boru_malzeme_hacmi=5.0,
+        )
+        beklenen = 1.75 * 2048.01 * ((0.0007 * 14) + 0.01) * 1.60 + 29.28
+        assert math.isclose(sonuc["fiyat_kirmatas"], beklenen)
+
+    def test_kazi_fiyati_dokum_harc_ekler(self):
+        sonuc = nakliye_fiyatlarini_hesapla(
+            mesafe_kazi=12, mesafe_boru=0, mesafe_kirmatas=0,
+            nakliye_katsayilari=ORNEK_NAKLIYE_KATSAYILARI,
+            boru_malzeme_hacmi=5.0,
+        )
+        beklenen = 1.25 * 2048.01 * ((0.00046 * math.sqrt(12 * 1000)) - 0.0046) + 29.28 + 80.0
+        assert math.isclose(sonuc["fiyat_kazi"], beklenen)
 
 
 class TestSatirHesapla:
@@ -160,8 +195,7 @@ class TestHesapKalemleriVeTablo:
         metraj = metraj_hesapla(ic_cap_mm=300, derinlik=2.0, uzunluk=100, dolgu_pozu=pozlar["dolgu_pozu"])
         nakliye_fiyatlari = nakliye_fiyatlarini_hesapla(
             mesafe_kazi=12, mesafe_boru=12, mesafe_kirmatas=14,
-            K_katsayisi=2048.01, A_katsayisi=1.75,
-            kirmata_yogunluk=1.60, beton_yogunluk=2.40,
+            nakliye_katsayilari=ORNEK_NAKLIYE_KATSAYILARI,
             boru_malzeme_hacmi=metraj["boru_malzeme_hacmi"],
         )
         nakliye_kalemleri = nakliye_kalemlerini_olustur(nakliye_fiyatlari, metraj)

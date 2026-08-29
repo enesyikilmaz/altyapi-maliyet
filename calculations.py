@@ -72,21 +72,34 @@ def metraj_hesapla(ic_cap_mm, derinlik, uzunluk, dolgu_pozu):
 
 def nakliye_fiyatlarini_hesapla(
     mesafe_kazi, mesafe_boru, mesafe_kirmatas,
-    K_katsayisi, A_katsayisi, kirmata_yogunluk, beton_yogunluk,
-    boru_malzeme_hacmi,
+    nakliye_katsayilari, boru_malzeme_hacmi,
 ):
-    """Resmi taşıma birim fiyat analizi formüllerine göre nakliye birim fiyatlarını ve boru tonajını hesaplar."""
+    """
+    Excel'in 'Nakliye Formulleri' sayfasındaki resmi formüle göre nakliye birim
+    fiyatlarını ve boru tonajını hesaplar.
+
+    Boru ve kırmataş nakliyesi: F = A x K x (0.0007xM + 0.01) x G
+    Kazı nakliyesi, aynı ailenin özel bir türevi olarak farklı bir katsayı setiyle
+    hesaplanır (bkz. proje geçmişi); üzerine seçilen ayın döküm sahası harç bedeli eklenir.
+    """
+    A = nakliye_katsayilari["A"]
+    K = nakliye_katsayilari["K"]
+    g_beton = nakliye_katsayilari["G_BETON"]
+    g_kirmatas = nakliye_katsayilari["G_KIRMATAS"]
+    kazi_dokum_harc = nakliye_katsayilari["KAZI_DOKUM_HARC"]
+    yukleme_bosaltma = nakliye_katsayilari["YUKLEME_BOSALTMA"]
+
     fiyat_kazi = (
-        1.25 * K_katsayisi * ((0.00046 * math.sqrt(mesafe_kazi * 1000)) - 0.0046) + 29.28 + 80.00
+        1.25 * K * ((0.00046 * math.sqrt(mesafe_kazi * 1000)) - 0.0046) + yukleme_bosaltma + kazi_dokum_harc
         if mesafe_kazi > 0 else 0
     )
-    nakliye_boru_ton = boru_malzeme_hacmi * beton_yogunluk
+    nakliye_boru_ton = boru_malzeme_hacmi * g_beton
     fiyat_boru = (
-        A_katsayisi * K_katsayisi * ((0.0007 * mesafe_boru) + 0.01) * 1.0
+        A * K * ((0.0007 * mesafe_boru) + 0.01) * g_beton
         if mesafe_boru > 0 else 0
     )
     fiyat_kirmatas = (
-        A_katsayisi * K_katsayisi * ((0.0007 * mesafe_kirmatas) + 0.01) * kirmata_yogunluk + 29.28
+        A * K * ((0.0007 * mesafe_kirmatas) + 0.01) * g_kirmatas + yukleme_bosaltma
         if mesafe_kirmatas > 0 else 0
     )
     return {
@@ -167,6 +180,16 @@ def maliyet_tablosunu_hesapla(hesap_kalemleri, birim_fiyat_bul_fn, k_carpan,
         genel_toplam_karli += sonuc["karli_tutar"]
 
     return satirlar, genel_toplam_karsiz, genel_toplam_karli
+
+
+def nakliye_formul_notlarini_olustur():
+    """Kullanıcıya gösterilecek, nakliye hesaplarında kullanılan formüllerin açıklama metinlerini döner."""
+    return [
+        "Kazı Hafriyat Nakliyesi: F = 1,25 × K × (0,00046 × √(M×1000) − 0,0046) + Yükleme/Boşaltma Bedeli + Döküm Sahası Harç Bedeli",
+        "Boru Nakliyesi: F = A × K × (0,0007 × M + 0,01) × G (G: betonarme boru malzeme yoğunluğu)",
+        "Kırmataş/Kum Nakliyesi: F = A × K × (0,0007 × M + 0,01) × G + Yükleme/Boşaltma Bedeli (G: kırmataş malzeme yoğunluğu)",
+        "A: Zorluk katsayısı, K: Taşıt katsayısı, M: Taşıma mesafesi (km) — değerler seçilen birim fiyat dönemine göre Excel'den alınır.",
+    ]
 
 
 def nakliye_kalemlerini_olustur(nakliye_fiyatlari, metraj):

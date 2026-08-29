@@ -1,8 +1,21 @@
-"""Sabitler ve konfigürasyon: poz numaraları, boru katalog verileri, nakliye formülü varsayılanları."""
+"""Sabitler ve konfigürasyon: poz numaraları, boru katalog verileri, nakliye formülü satır anahtarları."""
 
-FIYAT_DOSYASI = "Altyapı Birim Fiyatlar_2.xlsx"
+FIYAT_DOSYASI = "Altyapı Birim Fiyatlar.xlsx"
+FIYAT_SAYFASI = "Sayfa1"
 
 SABIT_SUTUNLAR = ['SIRA NO', 'POZ NO', 'İŞ KALEMİNİN ADI VE KISA AÇIKLAMASI', 'BİRİMİ']
+
+# Sayfa1'in alt kısmındaki nakliye formülü katsayı satırlarını "İŞ KALEMİNİN ADI VE KISA
+# AÇIKLAMASI" sütunundaki metne göre bulmak için kullanılan anahtar kelimeler. Satır
+# numarası değil metin araması kullanılıyor çünkü Excel'e satır eklenip çıkarılabilir.
+NAKLIYE_KATSAYI_ANAHTARLARI = {
+    "A": "zorluk katsay",
+    "K": "taşıt katsay",
+    "G_BETON": "betonarme boru malzeme yoğunlu",
+    "G_KIRMATAS": "kırmataş malzeme yoğunlu",
+    "KAZI_DOKUM_HARC": "döküm sahası harç",
+    "YUKLEME_BOSALTMA": "yükleme, boşaltma ve figür",
+}
 
 KAZI_POZU = "KGM 14.210"
 KUM_POZU = "43.610.1053"
@@ -23,13 +36,6 @@ ET_KALINLIKLARI_MM = {
     300: 50, 400: 50, 500: 60, 600: 70, 800: 90, 1000: 110,
     1200: 130, 1400: 150, 1600: 170, 1800: 180, 2000: 200, 2200: 220, 2400: 240
 }
-
-# Nakliye formülü varsayılan katsayıları (resmi birim fiyat analizi yöntemine göre).
-# Sadece "Uzman Modu" açıldığında sidebar'dan değiştirilebilir.
-VARSAYILAN_K_KATSAYISI = 2048.01
-VARSAYILAN_A_KATSAYISI = 1.75
-VARSAYILAN_KIRMATAS_YOGUNLUK = 1.60
-VARSAYILAN_BETON_YOGUNLUK = 2.40
 
 MAKS_KAZI_DERINLIGI = 8.0
 

@@ -3,13 +3,15 @@
 import pandas as pd
 import streamlit as st
 
-from config import SABIT_SUTUNLAR, AY_ADLARI_TR
+from config import SABIT_SUTUNLAR, AY_ADLARI_TR, FIYAT_SAYFASI, NAKLIYE_KATSAYI_ANAHTARLARI
+
+ACIKLAMA_SUTUNU = 'İŞ KALEMİNİN ADI VE KISA AÇIKLAMASI'
 
 
 @st.cache_data
 def fiyat_listesini_yukle(dosya_yolu):
     """Birim fiyat Excel'ini okur, şemayı doğrular ve önbelleğe alır."""
-    df = pd.read_excel(dosya_yolu)
+    df = pd.read_excel(dosya_yolu, sheet_name=FIYAT_SAYFASI)
 
     eksik_sutunlar = [s for s in SABIT_SUTUNLAR if s not in df.columns]
     if eksik_sutunlar:
@@ -22,6 +24,30 @@ def fiyat_listesini_yukle(dosya_yolu):
         raise KeyError("Excel dosyasında en az bir dönemsel birim fiyat sütunu bulunmalı.")
 
     return df, donem_sutunlari
+
+
+def _anahtar_satiri_bul(df_fiyatlar, anahtar_metin):
+    """Açıklama sütununda anahtar metni (büyük/küçük harf duyarsız) içeren ilk satırı bulur."""
+    eslesen = df_fiyatlar[
+        df_fiyatlar[ACIKLAMA_SUTUNU].astype(str).str.contains(anahtar_metin, case=False, na=False)
+    ]
+    if eslesen.empty:
+        raise KeyError(
+            f"Excel dosyasında '{anahtar_metin}' ifadesini içeren bir satır bulunamadı. "
+            f"Nakliye katsayı satırlarının '{ACIKLAMA_SUTUNU}' sütunundaki metni kontrol edin."
+        )
+    return eslesen.iloc[0]
+
+
+def nakliye_katsayilarini_bul(df_fiyatlar, donem):
+    """
+    Sayfa1'in alt kısmındaki nakliye formülü katsayılarını (A, K, G-beton, G-kırmataş,
+    kazı döküm harç bedeli, yükleme/boşaltma bedeli) seçilen döneme göre okur.
+    """
+    return {
+        anahtar: float(_anahtar_satiri_bul(df_fiyatlar, metin)[donem])
+        for anahtar, metin in NAKLIYE_KATSAYI_ANAHTARLARI.items()
+    }
 
 
 def donem_etiketlerini_olustur(donem_sutunlari):
