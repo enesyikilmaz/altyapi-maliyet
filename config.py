@@ -31,7 +31,12 @@ VARSAYILAN_A_KATSAYISI = 1.75
 VARSAYILAN_KIRMATAS_YOGUNLUK = 1.60
 VARSAYILAN_BETON_YOGUNLUK = 2.40
 
-MAKS_KAZI_DERINLIGI = 10.0
+MAKS_KAZI_DERINLIGI = 8.0
+
+AY_ADLARI_TR = {
+    1: "Ocak", 2: "Şubat", 3: "Mart", 4: "Nisan", 5: "Mayıs", 6: "Haziran",
+    7: "Temmuz", 8: "Ağustos", 9: "Eylül", 10: "Ekim", 11: "Kasım", 12: "Aralık",
+}
 
 # Nakliye poz kodları (resmi birim fiyat analiz yöntemi formülleri).
 NAKLIYE_KAZI_POZU = "SNBF.27-A"

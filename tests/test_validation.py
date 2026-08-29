@@ -25,11 +25,15 @@ class TestGirdileriDogrula:
         hatalar = girdileri_dogrula(**{**VALID, "derinlik": 0})
         assert any("Derinliği" in h for h in hatalar)
 
-    def test_10m_derinlik_gecerli(self):
-        assert girdileri_dogrula(**{**VALID, "derinlik": 10.0}) == []
+    def test_8m_altinda_derinlik_gecerli(self):
+        assert girdileri_dogrula(**{**VALID, "derinlik": 7.99}) == []
 
-    def test_10m_ustu_derinlik_hata(self):
-        hatalar = girdileri_dogrula(**{**VALID, "derinlik": 10.01})
+    def test_8m_derinlik_hata(self):
+        hatalar = girdileri_dogrula(**{**VALID, "derinlik": 8.0})
+        assert any("maksimum" in h for h in hatalar)
+
+    def test_8m_ustu_derinlik_hata(self):
+        hatalar = girdileri_dogrula(**{**VALID, "derinlik": 8.5})
         assert any("maksimum" in h for h in hatalar)
 
     def test_negatif_mesafe_hata(self):

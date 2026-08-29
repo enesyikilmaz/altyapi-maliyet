@@ -10,11 +10,11 @@ def girdileri_dogrula(uzunluk, derinlik, mesafe_kazi, mesafe_boru, mesafe_kirmat
         hatalar.append("Hat Uzunluğu 0'dan büyük olmalı.")
     if derinlik <= 0:
         hatalar.append("Ortalama Kazı Derinliği 0'dan büyük olmalı.")
-    if derinlik > MAKS_KAZI_DERINLIGI:
+    if derinlik >= MAKS_KAZI_DERINLIGI:
         hatalar.append(
-            f"İş güvenliği ve teknik standartlar gereği ortalama kazı derinliği maksimum "
-            f"{MAKS_KAZI_DERINLIGI:.0f} metre olabilir. Daha derin kazılar için özel iksa veya "
-            f"kademeli kazı projesi gereklidir."
+            f"Bu modül üzerinden, ortalama kazı derinliği maksimum {MAKS_KAZI_DERINLIGI:.0f} metre "
+            f"olacak şekilde hesap yapılır. Daha derin kazılar için özel iksa veya kademeli kazı "
+            f"projesi gereklidir."
         )
     if mesafe_kazi < 0 or mesafe_boru < 0 or mesafe_kirmatas < 0:
         hatalar.append("Nakliye mesafeleri negatif olamaz.")

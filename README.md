@@ -7,16 +7,16 @@ Canlı uygulama: https://altyapi-maliyet.streamlit.app/
 
 ## Ne yapar?
 
-Kullanıcı; hat uzunluğu, ortalama kazı derinliği, zemin tipi, boru iç çapı ve nakliye
-mesafeleri gibi parametreleri girer. Uygulama bunlardan:
+Kullanıcı; birim fiyat dönemi, hat uzunluğu, ortalama kazı derinliği, zemin tipi, boru iç çapı ve
+nakliye mesafeleri gibi parametreleri girer. Uygulama bunlardan:
 
 - Kazı hacmi, yataklama/kum dolgu hacmi, geri dolgu hacmi
 - Boru döşeme metrajı ve (Ø800 mm ve üzeri boru için) hasır çelik donatı miktarı
 - Kazı, boru ve kırmataş/kum nakliye miktarları
 
-metrajlarını hesaplar; bu iş kalemlerini `Altyapı Birim Fiyatlar_2.xlsx` içindeki resmi birim
-fiyatlarla eşleştirip kârsız ve kârlı (yüklenici kârı eklenmiş) yaklaşık maliyet tablosu üretir.
-Sonuçlar; tablo, kanal kesitinin şematik çizimi ve Excel raporu olarak sunulur.
+metrajlarını hesaplar; bu iş kalemlerini `Altyapı Birim Fiyatlar_2.xlsx` içindeki, seçilen aya ait
+kârsız birim fiyatlarla eşleştirip yüklenici kârı eklenmiş yaklaşık maliyet tablosu üretir.
+Sonuçlar; tablo ve kanal kesitinin şematik çizimi olarak sunulur, Excel raporu olarak indirilebilir.
 
 **Not:** Bu araç yaklaşık bir maliyet tahmini üretir; resmi bir keşif/metraj raporu yerine geçmez.
 
@@ -37,13 +37,13 @@ Birim fiyatlar, repo içindeki `Altyapı Birim Fiyatlar_2.xlsx` dosyasından oku
 sütunları içermelidir:
 
 - `SIRA NO`, `POZ NO`, `İŞ KALEMİNİN ADI VE KISA AÇIKLAMASI`, `BİRİMİ`
-- En az bir dönemsel birim fiyat sütunu (örn. bir tarih/dönem adı)
+- Her ay için bir dönemsel (kârsız) birim fiyat sütunu; sütun başlığı o ayın ilk gününü
+  temsil eden bir tarih olmalıdır (örn. Eylül 2025 için `01.09.2025`)
 
-Uygulama, dosyadaki ilk dönem sütununu kullanır. Hesaplamada kullanılan POZ numaraları
-`config.py` içinde tanımlıdır.
-
-Kendi birim fiyat listeni kullanmak istersen, sayfadaki "Kendi birim fiyat listeni kullan
-(opsiyonel)" bölümünden aynı sütun yapısına sahip bir `.xlsx` dosyası yükleyebilirsin.
+Uygulama, sütun başlıklarındaki tarihleri okuyup sidebar'da "Birim Fiyat Dönemi" açılır
+listesinde kronolojik sırada ("Eylül 2025", "Ekim 2025", ...) sunar; varsayılan olarak en
+güncel (son) dönem seçili gelir. Hesaplamada kullanılan POZ numaraları `config.py` içinde
+tanımlıdır.
 
 ## Metodoloji Özeti
 
