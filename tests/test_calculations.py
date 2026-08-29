@@ -190,6 +190,20 @@ class TestHesapKalemleriVeTablo:
         hesap_kalemleri = hesap_kalemlerini_olustur(pozlar, 800, 100, metraj)
         assert any(k["İşlem"] == "Boru İçi Hasır Çelik Donatı" for k in hesap_kalemleri)
 
+    def test_yesil_alan_geri_dolgu_etiketi(self):
+        pozlar = boru_pozlarini_belirle("Yeşil Alan", 300)
+        metraj = metraj_hesapla(ic_cap_mm=300, derinlik=2.0, uzunluk=100, dolgu_pozu=pozlar["dolgu_pozu"])
+        hesap_kalemleri = hesap_kalemlerini_olustur(pozlar, 300, 100, metraj)
+        assert any(k["İşlem"] == "Geri Dolgu" for k in hesap_kalemleri)
+        assert not any(k["İşlem"] == "Kırmataş Dolgu" for k in hesap_kalemleri)
+
+    def test_sert_zemin_kirmatas_dolgu_etiketi(self):
+        pozlar = boru_pozlarini_belirle("Sert Zemin (Asfalt/Beton)", 300)
+        metraj = metraj_hesapla(ic_cap_mm=300, derinlik=2.0, uzunluk=100, dolgu_pozu=pozlar["dolgu_pozu"])
+        hesap_kalemleri = hesap_kalemlerini_olustur(pozlar, 300, 100, metraj)
+        assert any(k["İşlem"] == "Kırmataş Dolgu" for k in hesap_kalemleri)
+        assert not any(k["İşlem"] == "Geri Dolgu" for k in hesap_kalemleri)
+
     def test_nakliye_kalemleri_uc_kalem(self):
         pozlar = boru_pozlarini_belirle("Yeşil Alan", 300)
         metraj = metraj_hesapla(ic_cap_mm=300, derinlik=2.0, uzunluk=100, dolgu_pozu=pozlar["dolgu_pozu"])

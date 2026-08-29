@@ -116,7 +116,12 @@ def hesap_kalemlerini_olustur(pozlar, ic_cap_mm, uzunluk, metraj):
         {"İşlem": "Kazı", "Poz": pozlar["kazi_pozu"], "Miktar (Sayısal)": metraj["kazi_hacmi"], "Birim": "m³"},
         {"İşlem": f"Boru Döşeme (Ø{ic_cap_mm} mm)", "Poz": pozlar["boru_pozu"], "Miktar (Sayısal)": uzunluk, "Birim": "m"},
         {"İşlem": "Yataklama (Kırmataş/Kum)", "Poz": pozlar["kum_pozu"], "Miktar (Sayısal)": metraj["kum_dolgu_hacmi_net"], "Birim": "m³"},
-        {"İşlem": "Geri Dolgu", "Poz": pozlar["dolgu_pozu"], "Miktar (Sayısal)": metraj["tuvenan_dolgu_hacmi"], "Birim": "m³"},
+        {
+            "İşlem": "Geri Dolgu" if pozlar["dolgu_pozu"] == DOLGU_POZU_YESIL else "Kırmataş Dolgu",
+            "Poz": pozlar["dolgu_pozu"],
+            "Miktar (Sayısal)": metraj["tuvenan_dolgu_hacmi"],
+            "Birim": "m³",
+        },
     ]
     if metraj["hasir_celik_miktari_ton"] > 0:
         kalemler.append({
