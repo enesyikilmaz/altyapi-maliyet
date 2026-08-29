@@ -3,15 +3,13 @@ import pandas as pd
 import io
 import base64
 
-from config import (
-    FIYAT_DOSYASI,
-    BORU_CAPLARI,
-    VARSAYILAN_K_KATSAYISI,
-    VARSAYILAN_A_KATSAYISI,
-    VARSAYILAN_KIRMATAS_YOGUNLUK,
-    VARSAYILAN_BETON_YOGUNLUK,
+from config import FIYAT_DOSYASI, BORU_CAPLARI
+from data import (
+    fiyat_listesini_yukle,
+    birim_fiyat_bul,
+    donem_etiketlerini_olustur,
+    nakliye_katsayilarini_bul,
 )
-from data import fiyat_listesini_yukle, birim_fiyat_bul, donem_etiketlerini_olustur
 from validation import girdileri_dogrula, gerekli_pozlari_kontrol_et
 from calculations import (
     boru_pozlarini_belirle,
@@ -19,6 +17,7 @@ from calculations import (
     nakliye_fiyatlarini_hesapla,
     hesap_kalemlerini_olustur,
     nakliye_kalemlerini_olustur,
+    nakliye_formul_notlarini_olustur,
     maliyet_tablosunu_hesapla,
 )
 from drawing import cizim_olustur
@@ -106,30 +105,7 @@ try:
     kar_orani = st.sidebar.number_input("Yüklenici Kârı (%)", min_value=0.0, value=15.0, step=1.0)
     k_carpan = 1 + (kar_orani / 100)
 
-    uzman_modu = st.sidebar.checkbox(
-        "Uzman Modu (nakliye katsayılarını düzenle)",
-        value=False,
-        help="Resmi birim fiyat analizi yönteminin taşıma formülü katsayılarıdır. "
-             "Varsayılan değerler dışına çıkmak sonuçları etkiler; sadece bu formüllere "
-             "hakim kullanıcılar tarafından değiştirilmelidir.",
-    )
-    with st.sidebar.expander("Gelişmiş Nakliye Katsayıları"):
-        K_katsayisi = st.number_input(
-            "Taşıt Katsayısı (K)", value=VARSAYILAN_K_KATSAYISI, disabled=not uzman_modu,
-            help="Nakliye birim fiyat formülündeki resmi taşıt katsayısı.",
-        )
-        A_katsayisi = st.number_input(
-            "Zorluk Katsayısı (A)", value=VARSAYILAN_A_KATSAYISI, disabled=not uzman_modu,
-            help="Yol/arazi zorluğuna göre resmi nakliye zorluk katsayısı.",
-        )
-        kirmata_yogunluk = st.number_input(
-            "Kırmataş Yoğunluğu (t/m³)", value=VARSAYILAN_KIRMATAS_YOGUNLUK, disabled=not uzman_modu,
-            help="Kırmataş/kum nakliye tonajı hesabında kullanılan yoğunluk.",
-        )
-        beton_yogunluk = st.number_input(
-            "Beton Boru Yoğunluğu (t/m³)", value=VARSAYILAN_BETON_YOGUNLUK, disabled=not uzman_modu,
-            help="Boru nakliye tonajı hesabında kullanılan beton yoğunluğu.",
-        )
+    nakliye_katsayilari = nakliye_katsayilarini_bul(df_fiyatlar, secilen_donem)
 
     pozlar = boru_pozlarini_belirle(zemin_tipi, ic_cap_mm)
 
@@ -156,8 +132,7 @@ try:
                     metraj = metraj_hesapla(ic_cap_mm, derinlik, uzunluk, pozlar["dolgu_pozu"])
                     nakliye_fiyatlari = nakliye_fiyatlarini_hesapla(
                         mesafe_kazi, mesafe_boru, mesafe_kirmatas,
-                        K_katsayisi, A_katsayisi, kirmata_yogunluk, beton_yogunluk,
-                        metraj["boru_malzeme_hacmi"],
+                        nakliye_katsayilari, metraj["boru_malzeme_hacmi"],
                     )
                     hesap_kalemleri = hesap_kalemlerini_olustur(pozlar, ic_cap_mm, uzunluk, metraj)
                     nakliye_kalemleri = nakliye_kalemlerini_olustur(nakliye_fiyatlari, metraj)
@@ -290,6 +265,10 @@ try:
             if uzunluk_sonuc > 0:
                 metretul_maliyeti = genel_toplam_karli / uzunluk_sonuc
                 st.metric("📏 Metretül Maliyeti", f"{format_currency(metretul_maliyeti)}/m")
+
+            st.caption("**Kullanılan nakliye formülleri:**")
+            for not_metni in nakliye_formul_notlarini_olustur():
+                st.caption(f"• {not_metni}")
 
         with col2:
             fig = cizim_olustur(ic_cap_mm_sonuc, metraj["dis_cap_m"], derinlik_sonuc, metraj["taban_genisligi"], zemin_tipi_sonuc)
